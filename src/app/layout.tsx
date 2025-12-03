@@ -24,10 +24,10 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
-        <title>Vooa - Sua vaquinha com asas</title>
+        <title>Eqp Dashboard</title>
         <meta
           name="description"
-          content="Compre brinquedos e diversão na Ri Happy! Produtos oficiais com até 80% de desconto."
+          content="Dashboard"
         />
         <meta name="robots" content="index, follow" />
       </head>
