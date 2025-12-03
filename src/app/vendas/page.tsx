@@ -77,6 +77,10 @@ export default function VendasPage() {
   const [partnerOpen, setPartnerOpen] = useState(false)
   const [periodOpen, setPeriodOpen] = useState(false)
 
+  // PAGINAÇÃO
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 4
+
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -133,6 +137,11 @@ export default function VendasPage() {
     setLoadingSales(true)
     fetchSales()
   }, [user, periodFilter])
+
+  // sempre que mexer em filtro ou trocar as vendas, volta pra página 1
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [statusFilter, partnerFilter, periodFilter, orders.length])
 
   const formatCurrency = (value: number | null | undefined) => {
     if (value == null) return 'R$ 0,00'
@@ -204,6 +213,14 @@ export default function VendasPage() {
 
     return list
   })()
+
+  // ====== PAGINAÇÃO BASEADA EM filteredOrders ======
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / itemsPerPage))
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedOrders = filteredOrders.slice(
+    startIndex,
+    startIndex + itemsPerPage,
+  )
 
   if (loadingUser) {
     return (
@@ -328,7 +345,7 @@ export default function VendasPage() {
             />
           </section>
 
-          {/* CARD PRINCIPAL VENDAS (FILTROS + TABELA) NO MESMO ESTILO */}
+          {/* CARD PRINCIPAL VENDAS (FILTROS + TABELA) */}
           <section className="relative rounded-3xl border border-[#1b1b1b] bg-gradient-to-br from-[#090909] via-[#050505] to-[#020202] px-5 py-5 md:px-7 md:py-6 shadow-[0_0_20px_rgba(0,0,0,0.4)] overflow-hidden">
             {/* linha glow topo */}
             <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent" />
@@ -364,7 +381,7 @@ export default function VendasPage() {
                             onClick={() => setStatusFilter(val)}
                             className={`px-3 py-1.5 text-[11px] transition ${
                               active
-                                ? 'bg-white text-black'
+                                ? 'bg.white text-black bg-white'
                                 : 'text-white/55 hover:bg-white/5'
                             }`}
                           >
@@ -423,7 +440,7 @@ export default function VendasPage() {
                               setPartnerFilter(p)
                               setPartnerOpen(false)
                             }}
-                            className={`block w-full px-3 py-2 text-left text-[11px] hover:bg-white/5 ${
+                            className={`block w-full px-3 py-2 text-left text-[11px] hover:bg.white/5 hover:bg-white/5 ${
                               partnerFilter === p
                                 ? 'text-emerald-300'
                                 : 'text-white/80'
@@ -486,7 +503,7 @@ export default function VendasPage() {
                             setPeriodFilter('yesterday')
                             setPeriodOpen(false)
                           }}
-                          className={`block w-full px-3 py-2 text-left text-[11px] hover:bg-white/5 ${
+                          className={`block w-full px-3 py-2 text-left text-[11px] hover.bg-white/5 hover:bg-white/5 ${
                             periodFilter === 'yesterday'
                               ? 'text-emerald-300'
                               : 'text-white/80'
@@ -500,7 +517,7 @@ export default function VendasPage() {
                             setPeriodFilter('last7')
                             setPeriodOpen(false)
                           }}
-                          className={`block w-full px-3 py-2 text-left text-[11px] hover:bg-white/5 ${
+                          className={`block w-full px-3 py-2 text-left text-[11px] hover:bg.white/5 hover:bg-white/5 ${
                             periodFilter === 'last7'
                               ? 'text-emerald-300'
                               : 'text-white/80'
@@ -514,7 +531,7 @@ export default function VendasPage() {
                             setPeriodFilter('last30')
                             setPeriodOpen(false)
                           }}
-                          className={`block w-full px-3 py-2 text-left text-[11px] hover:bg-white/5 ${
+                          className={`block w-full px-3 py-2 text-left text-[11px] hover:bg.white/5 hover:bg-white/5 ${
                             periodFilter === 'last30'
                               ? 'text-emerald-300'
                               : 'text-white/80'
@@ -540,126 +557,127 @@ export default function VendasPage() {
                 </div>
               </div>
 
-              {/* TABELA */}
-              {loadingSales ? (
-                <div className="h-40 rounded-2xl border border-[#202020] bg-[#080808]" />
-              ) : filteredOrders.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-[#262626] bg-[#080808] px-5 py-6 text-xs text-white/60">
-                  Nenhuma venda encontrada com os filtros atuais.
-                  <br />
-                  <span className="text-white/45">
-                    Ajuste o período, o parceiro ou o status para visualizar
-                    outras movimentações.
+        
+
+     {loadingSales ? (
+  <div className="h-40 rounded-2xl border border-[#202020] bg-[#080808]" />
+) : filteredOrders.length === 0 ? (
+  <div className="rounded-2xl border border-dashed border-[#262626] bg-[#080808] px-5 py-6 text-xs text-white/60">
+    Nenhuma venda encontrada com os filtros atuais.
+    <br />
+    <span className="text-white/45">
+      Ajuste o período, o parceiro ou o status para visualizar outras movimentações.
+    </span>
+  </div>
+) : (
+  <>
+    <div className="overflow-hidden rounded-2xl border border-[#202020] bg-[#080808]">
+      <table className="min-w-full border-collapse text-[11px]">
+        <thead className="bg-black/40 text-white/50">
+          <tr>
+            <th className="px-4 py-2 text-left font-normal">Site / parceiro</th>
+            <th className="px-4 py-2 text-left font-normal">Valor / lucro / sua parte</th>
+            <th className="px-4 py-2 text-center font-normal">Pagamento</th>
+            <th className="px-4 py-2 text-center font-normal">Quando</th>
+            <th className="px-4 py-2 text-center font-normal">Status</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {paginatedOrders.map((o) => (
+            <tr key={o.id} className="border-t border-[#262626] hover:bg-white/[0.02]">
+              <td className="px-4 py-3 align-top">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[11px] font-semibold text-white/85">{o.siteName}</span>
+                  <span className="text-[10px] text-white/55">Parceiro: {o.partnerName}</span>
+                  {o.buckpayOrderId && (
+                    <span className="text-[10px] text-white/40">BuckPay ID: {o.buckpayOrderId}</span>
+                  )}
+                </div>
+              </td>
+
+              <td className="px-4 py-3 align-top">
+                <div className="flex flex-col gap-0.5 text-[10px]">
+                  <span className="text-white/80">
+                    Cliente pagou: <strong>{formatCurrency(o.amount)}</strong>
+                  </span>
+                  <span className="text-white/55">
+                    Lucro do site: <strong>{formatCurrency(o.netAmount)}</strong>
+                  </span>
+                  <span className="text-emerald-300">
+                    Sua parte: <strong>{formatCurrency(o.myCommission)}</strong>
                   </span>
                 </div>
-              ) : (
-                <div className="overflow-hidden rounded-2xl border border-[#202020] bg-[#080808]">
-                  <table className="min-w-full border-collapse text-[11px]">
-                    <thead className="bg-black/40 text-white/50">
-                      <tr>
-                        <th className="px-4 py-2 text-left font-normal">
-                          Site / parceiro
-                        </th>
-                        <th className="px-4 py-2 text-left font-normal">
-                          Valor / lucro / sua parte
-                        </th>
-                        <th className="px-4 py-2 text-center font-normal">
-                          Pagamento
-                        </th>
-                        <th className="px-4 py-2 text-center font-normal">
-                          Quando
-                        </th>
-                        <th className="px-4 py-2 text-center font-normal">
-                          Status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredOrders.map((o) => (
-                        <tr
-                          key={o.id}
-                          className="border-t border-[#262626] hover:bg-white/[0.02]"
-                        >
-                          <td className="px-4 py-3 align-top">
-                            <div className="flex flex-col gap-0.5">
-                              <span className="text-[11px] font-semibold text-white/85">
-                                {o.siteName}
-                              </span>
-                              <span className="text-[10px] text-white/55">
-                                Parceiro: {o.partnerName}
-                              </span>
-                              {o.buckpayOrderId && (
-                                <span className="text-[10px] text-white/40">
-                                  BuckPay ID: {o.buckpayOrderId}
-                                </span>
-                              )}
-                            </div>
-                          </td>
+              </td>
 
-                          <td className="px-4 py-3 align-top">
-                            <div className="flex flex-col gap-0.5 text-[10px]">
-                              <span className="text-white/80">
-                                Cliente pagou:{' '}
-                                <strong>{formatCurrency(o.amount)}</strong>
-                              </span>
-                              <span className="text-white/55">
-                                Lucro do site:{' '}
-                                <strong>{formatCurrency(o.netAmount)}</strong>
-                              </span>
-                              <span className="text-emerald-300">
-                                Sua parte:{' '}
-                                <strong>
-                                  {formatCurrency(o.myCommission)}
-                                </strong>
-                              </span>
-                            </div>
-                          </td>
-
-                          <td className="px-4 py-3 align-middle text-center">
-                            <div className="flex flex-col items-center gap-0.5 text-[10px] text-white/60">
-                              <span className="inline-flex items-center gap-1 justify-center">
-                                {o.paymentMethod === 'pix' && (
-                                  <>
-                                    <QrCode className="h-3 w-3 text-emerald-300" />
-                                    Pix
-                                  </>
-                                )}
-                                {o.paymentMethod === 'card' && (
-                                  <>
-                                    <CreditCard className="h-3 w-3 text-white/70" />
-                                    Cartão
-                                  </>
-                                )}
-                                {o.paymentMethod === 'boleto' && (
-                                  <>
-                                    <Receipt className="h-3 w-3 text-white/70" />
-                                    Boleto
-                                  </>
-                                )}
-                                {o.paymentMethod !== 'pix' &&
-                                  o.paymentMethod !== 'card' &&
-                                  o.paymentMethod !== 'boleto' && (
-                                    <>{o.paymentMethod}</>
-                                  )}
-                              </span>
-                            </div>
-                          </td>
-
-                          <td className="px-4 py-3 align-middle text-center">
-                            <span className="text-[10px] text-white/55">
-                              {formatDateTime(o.createdAt)}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-3 align-middle text-center">
-                            <OrderStatusPill status={o.status} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              <td className="px-4 py-3 text-center align-middle">
+                <div className="flex flex-col items-center gap-0.5 text-[10px] text-white/60">
+                  {o.paymentMethod === 'pix' && (
+                    <>
+                      <QrCode className="h-3 w-3 text-emerald-300" /> Pix
+                    </>
+                  )}
+                  {o.paymentMethod === 'card' && (
+                    <>
+                      <CreditCard className="h-3 w-3 text-white/70" /> Cartão
+                    </>
+                  )}
+                  {o.paymentMethod === 'boleto' && (
+                    <>
+                      <Receipt className="h-3 w-3 text-white/70" /> Boleto
+                    </>
+                  )}
                 </div>
-              )}
+              </td>
+
+              <td className="px-4 py-3 text-center text-[10px] text-white/55">
+                {formatDateTime(o.createdAt)}
+              </td>
+
+              <td className="px-4 py-3 text-center">
+                <OrderStatusPill status={o.status} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    {/* PAGINAÇÃO NO FINAL DA TABELA */}
+    <div className="flex justify-end mt-4 pr-1">
+      <div className="inline-flex items-center gap-2 rounded-full border border-[#262626] bg-[#080808] px-4 py-2 text-[11px] text-white/65">
+
+        <span className="text-white/50">
+          Página {currentPage} de {totalPages}
+        </span>
+
+        <button
+          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+          disabled={currentPage === 1}
+          className={`px-3 py-1 rounded-full border text-[10px] transition ${
+            currentPage === 1
+              ? 'border-transparent text-white/25 cursor-not-allowed'
+              : 'border-white/10 text-white/80 hover:bg-white/5'
+          }`}
+        >
+          Anterior
+        </button>
+
+        <button
+          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+          disabled={currentPage === totalPages}
+          className={`px-3 py-1 rounded-full border text-[10px] transition ${
+            currentPage === totalPages
+              ? 'border-transparent text-white/25 cursor-not-allowed'
+              : 'border-white/10 text-white/80 hover:bg-white/5'
+          }`}
+        >
+          Próxima
+        </button>
+      </div>
+    </div>
+  </>
+)}
             </div>
           </section>
         </div>
