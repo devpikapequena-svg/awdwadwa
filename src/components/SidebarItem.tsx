@@ -2,23 +2,28 @@
 'use client'
 
 import Link from 'next/link'
+import { ComponentType } from 'react'
+
+type SidebarItemProps = {
+  href: string
+  icon: ComponentType<{ className?: string }>
+  label: string
+  active?: boolean
+  onClick?: () => void
+}
 
 export default function SidebarItem({
   href,
   icon: Icon,
   label,
   active = false,
-}: {
-  href: string
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  active?: boolean
-}) {
+  onClick,
+}: SidebarItemProps) {
   return (
-    <Link href={href} className="block">
+    <Link href={href} onClick={onClick} className="block">
       <div
         className={[
-          'flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-[13px] transition-all',
+          'flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-[13px] transition-all select-none cursor-pointer',
           active
             ? 'bg-white text-black shadow-sm'
             : 'text-white/65 hover:bg-white/10',

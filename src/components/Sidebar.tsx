@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   ShoppingBag,
   Users,
-  Settings,
   Wallet2,
   ReceiptText,
   Menu,
@@ -51,7 +50,7 @@ export default function Sidebar({ user }: { user: any }) {
       <aside
         className={`
           fixed z-50 md:static
-          h-full w-64 flex flex-col
+          h-screen w-64 flex flex-col          /* AQUI: h-full -> h-screen */
           border-r border-[#151515]
           bg-gradient-to-b from-[#050505] via-[#050505] to-[#02040a]
           px-5 py-6
@@ -60,11 +59,10 @@ export default function Sidebar({ user }: { user: any }) {
         `}
       >
         {/* FECHAR MOBILE */}
-<button
-  onClick={() => setMobileOpen(false)}
-  className="md:hidden absolute top-3 right-3 p-2 rounded-lg bg-white/10 z-[9999]"
->
-
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="md:hidden absolute top-3 right-3 p-2 rounded-lg bg-white/10 z-[9999]"
+        >
           <X className="h-5 w-5 text-white" />
         </button>
 
@@ -146,7 +144,10 @@ export default function Sidebar({ user }: { user: any }) {
 
         <div className="mt-8 rounded-2xl border border-white/10 px-4 py-4 text-center">
           <p className="text-[10px] tracking-wide text-white/40">
-            Powered by <span className="font-semibold text-emerald-400">Exec v2.4.1</span>
+            Powered by{' '}
+            <span className="font-semibold text-emerald-400">
+              Exec v2.4.1
+            </span>
           </p>
         </div>
       </aside>
