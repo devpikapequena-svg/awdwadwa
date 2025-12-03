@@ -1,0 +1,128 @@
+// components/Sidebar.tsx
+'use client'
+
+import Link from 'next/link'
+import Image from 'next/image'
+import { usePathname } from 'next/navigation'
+import {
+  LayoutDashboard,
+  ShoppingBag,
+  Users,
+  Settings,
+  Wallet2,
+  ReceiptText,
+} from 'lucide-react'
+import SidebarItem from './SidebarItem'
+
+export default function Sidebar({ user }: { user: any }) {
+  const pathname = usePathname()
+
+  // === ROLE (Owner / Member) ===
+  const isBruxin =
+    user &&
+    (String(user.name || '').toLowerCase().includes('bruxin') ||
+      String(user.email || '').toLowerCase() === 'bruxin@exec.gg')
+
+  const roleLabel = isBruxin ? 'Owner' : 'Member'
+
+  // === AVATAR IMAGE ===
+  const avatarUrl = user?.image || '/exec-avatar.png' // troque pelo caminho da sua logo/avatar
+
+  return (
+    <aside
+      className="
+        sticky top-0
+        flex h-screen w-64 flex-col
+        border-r border-[#151515]
+        bg-gradient-to-b from-[#050505] via-[#050505] to-[#02040a]
+        px-5 py-6
+      "
+    >
+      {/* USER CARD / BRAND */}
+      <div className="mb-8 flex items-center gap-3 rounded-2xl border border-white/5 px-4 py-3 backdrop-blur-sm shadow-[0_0_25px_rgba(0,0,0,0.45)]">
+        <div className="relative h-10 w-10 overflow-hidden rounded-xl bg-[#0f172a]">
+          <Image
+            src={avatarUrl}
+            alt={user?.name || 'Avatar Exec'}
+            fill
+            className="object-cover"
+          />
+        </div>
+
+        <div className="flex flex-1 flex-col">
+          <span className="truncate text-sm font-semibold text-white">
+            {user?.name || 'Gestor(a)'}
+          </span>
+          <span className="text-[11px] text-white/45">
+            {roleLabel}
+          </span>
+        </div>
+      </div>
+
+      {/* MENU */}
+      <nav className="flex-1 space-y-8 text-sm">
+        {/* Seção principal */}
+        <div className="space-y-3">
+          <p className="px-1 text-[11px] uppercase tracking-[0.16em] text-white/35">
+            Navegação
+          </p>
+
+          <SidebarItem
+            href="/dashboard"
+            icon={LayoutDashboard}
+            label="Visão geral"
+            active={pathname === '/dashboard'}
+          />
+
+          <SidebarItem
+            href="/projetos"
+            icon={Users}
+            label="Parceiros & sites"
+            active={pathname.startsWith('/projetos')}
+          />
+
+          <SidebarItem
+            href="/vendas"
+            icon={ShoppingBag}
+            label="Vendas"
+            active={pathname.startsWith('/vendas')}
+          />
+        </div>
+
+        {/* divisória suave */}
+        <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
+        {/* Seção financeiro */}
+        <div className="space-y-3">
+          <p className="px-1 text-[11px] uppercase tracking-[0.16em] text-white/35">
+            Integrações & financeiro
+          </p>
+
+          <SidebarItem
+            href="/financeiro"
+            icon={Wallet2}
+            label="Resumo financeiro"
+            active={pathname.startsWith('/financeiro')}
+          />
+
+          <SidebarItem
+            href="/notas"
+            icon={ReceiptText}
+            label="Comissões & repasses"
+            active={pathname.startsWith('/notas')}
+          />
+        </div>
+      </nav>
+
+      {/* RODAPÉ / FOOTER */}
+      <div className="mt-8 rounded-2xl border border-white/10 px-4 py-4 text-center">
+        <p className="text-[10px] tracking-wide text-white/40">
+          Powered by{' '}
+          <span className="font-semibold text-emerald-400">
+            Exec v2.4.1
+          </span>
+        </p>
+      </div>
+    </aside>
+  )
+}
