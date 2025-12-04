@@ -158,58 +158,65 @@ export async function GET(req: NextRequest) {
       configs.map((c: any) => [c.siteSlug as string, c]),
     )
 
-    type Sale = {
-      id: string
-      siteName: string
-      partnerName: string
-      buckpayOrderId?: string | null
-      amount: number
-      netAmount: number
-      myCommission: number
-      status: 'paid' | 'pending' | 'refunded'
-      paymentMethod: 'pix' | 'card' | 'boleto' | string
-      source?: string | null
-      campaign?: string | null
-      createdAt: string
-    }
+ // app/api/vendas/route.ts
 
-    const orders: Sale[] = (docs as any[]).map((doc) => {
-      const totalCents = doc.totalAmountInCents || 0
-      const netCents = doc.netAmountInCents || 0
+type Sale = {
+  id: string
+  siteName: string
+  partnerName: string
+  buckpayOrderId?: string | null
+  amount: number
+  netAmount: number
+  myCommission: number
+  status: 'paid' | 'pending' | 'refunded'
+  paymentMethod: 'pix' | 'card' | 'boleto' | string
+  source?: string | null
+  campaign?: string | null
+  createdAt: string
+  customerName?: string | null   // 👈 ADICIONA AQUI
+}
 
-      const amount = totalCents / 100
-      const netAmount = netCents / 100
-      const myCommission = netAmount * 0.3
+const orders: Sale[] = (docs as any[]).map((doc) => {
+  const totalCents = doc.totalAmountInCents || 0
+  const netCents = doc.netAmountInCents || 0
 
-      const status = mapStatusToFrontend(
-        doc.status || doc.rawGatewayStatus || 'pending',
-      )
+  const amount = totalCents / 100
+  const netAmount = netCents / 100
+  const myCommission = netAmount * 0.3
 
-      const slug: string = doc.siteSlug || 'Sem site'
-      const cfg = cfgBySlug.get(slug)
+  const status = mapStatusToFrontend(
+    doc.status || doc.rawGatewayStatus || 'pending',
+  )
 
-      const siteName = cfg?.siteName || slug || 'Sem site'
-      const partnerName = cfg?.partnerName || 'Não configurado'
+  const slug: string = doc.siteSlug || 'Sem site'
+  const cfg = cfgBySlug.get(slug)
 
-      const utm = doc.utm || {}
+  const siteName = cfg?.siteName || slug || 'Sem site'
+  const partnerName = cfg?.partnerName || 'Não configurado'
 
-      return {
-        id: String(doc._id),
-        siteName,
-        partnerName,
-        buckpayOrderId: doc.gatewayTransactionId || null,
-        amount,
-        netAmount,
-        myCommission,
-        status,
-        paymentMethod: doc.paymentMethod || 'pix',
-        source: utm.utm_source || utm.src || null,
-        campaign: utm.utm_campaign || null,
-        createdAt: doc.createdAt
-          ? new Date(doc.createdAt).toISOString()
-          : new Date().toISOString(),
-      }
-    })
+  const utm = doc.utm || {}
+
+  return {
+    id: String(doc._id),
+    siteName,
+    partnerName,
+    buckpayOrderId: doc.gatewayTransactionId || null,
+    amount,
+    netAmount,
+    myCommission,
+    status,
+    paymentMethod: doc.paymentMethod || 'pix',
+    source: utm.utm_source || utm.src || null,
+    campaign: utm.utm_campaign || null,
+    createdAt: doc.createdAt
+      ? new Date(doc.createdAt).toISOString()
+      : new Date().toISOString(),
+
+    // 👇 PEGA O NOME DE QUEM GEROU / PAGOU
+    customerName: doc.customer?.name || null,
+  }
+})
+
 
     const totalOrders = orders.length
     const totalGross = orders.reduce((acc, o) => acc + o.amount, 0)

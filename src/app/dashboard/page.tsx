@@ -387,7 +387,7 @@ export default function DashboardPage() {
                     <p className="text-[11px] text-white/60">Receita</p>
                     <p className="text-2xl font-semibold tracking-tight text-white">
                       {summary
-                        ? formatCurrency(summary.totalGross)
+                        ? formatCurrency(summary.totalNet)
                         : 'R$ 0,00'}
                     </p>
                   </div>
@@ -547,12 +547,6 @@ export default function DashboardPage() {
                           {formatCurrency(summary.myCommissionTotal)}
                         </span>
                       </div>
-
-                      <p className="mt-3 text-[10px] text-white/45 leading-relaxed">
-                        Use esse painel para bater metas semanais ou mensais. Se
-                        a linha estiver “reta”, é sinal de que os sites
-                        precisam de mais tráfego e campanha.
-                      </p>
                     </div>
                   ) : (
                     <div className="h-20 rounded-xl border border-[#262626] bg-black/20" />

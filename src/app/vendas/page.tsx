@@ -40,7 +40,9 @@ type Sale = {
   source?: string | null
   campaign?: string | null
   createdAt: string
+  customerName?: string | null   // 👈 ADICIONA AQUI
 }
+
 
 type SalesSummary = {
   periodLabel: string
@@ -583,63 +585,95 @@ export default function VendasPage() {
           </tr>
         </thead>
 
-        <tbody>
-          {paginatedOrders.map((o) => (
-            <tr key={o.id} className="border-t border-[#262626] hover:bg-white/[0.02]">
-              <td className="px-4 py-3 align-top">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[11px] font-semibold text-white/85">{o.siteName}</span>
-                  <span className="text-[10px] text-white/55">Parceiro: {o.partnerName}</span>
-                  {o.buckpayOrderId && (
-                    <span className="text-[10px] text-white/40">BuckPay ID: {o.buckpayOrderId}</span>
-                  )}
-                </div>
-              </td>
+     <tbody>
+  {paginatedOrders.map((o) => (
+  <tr
+  key={o.id}
+  className="border-t border-[#262626] hover:bg-white/[0.02] transition-colors"
+>
+  {/* COLUNA – CLIENTE / PARCEIRO / BUCKPAY */}
+  <td className="px-4 py-3 align-top">
+    <div className="flex flex-col gap-1">
+      {/* Nome do cliente */}
+      <span className="text-[11px] font-medium text-white/90">
+        {o.customerName || 'Cliente sem nome'}
+      </span>
 
-              <td className="px-4 py-3 align-top">
-                <div className="flex flex-col gap-0.5 text-[10px]">
-                  <span className="text-white/80">
-                    Cliente pagou: <strong>{formatCurrency(o.amount)}</strong>
-                  </span>
-                  <span className="text-white/55">
-                    Lucro do site: <strong>{formatCurrency(o.netAmount)}</strong>
-                  </span>
-                  <span className="text-emerald-300">
-                    Sua parte: <strong>{formatCurrency(o.myCommission)}</strong>
-                  </span>
-                </div>
-              </td>
+      {/* Site + parceiro */}
+      <div className="flex flex-wrap items-center gap-2 text-[10px]">
+        {o.siteName && (
+          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[9px] uppercase tracking-wide text-white/65">
+            {o.siteName}
+          </span>
+        )}
 
-              <td className="px-4 py-3 text-center align-middle">
-                <div className="flex flex-col items-center gap-0.5 text-[10px] text-white/60">
-                  {o.paymentMethod === 'pix' && (
-                    <>
-                      <QrCode className="h-3 w-3 text-emerald-300" /> Pix
-                    </>
-                  )}
-                  {o.paymentMethod === 'card' && (
-                    <>
-                      <CreditCard className="h-3 w-3 text-white/70" /> Cartão
-                    </>
-                  )}
-                  {o.paymentMethod === 'boleto' && (
-                    <>
-                      <Receipt className="h-3 w-3 text-white/70" /> Boleto
-                    </>
-                  )}
-                </div>
-              </td>
+        <span className="text-white/50">
+          Parceiro:{' '}
+          <span className="font-medium text-white/75">
+            {o.partnerName || '—'}
+          </span>
+        </span>
+      </div>
 
-              <td className="px-4 py-3 text-center text-[10px] text-white/55">
-                {formatDateTime(o.createdAt)}
-              </td>
+      {/* Buckpay ID */}
+      {o.buckpayOrderId && (
+        <span className="text-[9px] text-white/35">
+          BuckPay ID: {o.buckpayOrderId}
+        </span>
+      )}
+    </div>
+  </td>
+{/* COLUNA – VALOR */}
+<td className="px-4 py-3 align-middle">
+  <div className="text-[10px] flex flex-col justify-center h-full">
 
-              <td className="px-4 py-3 text-center">
-                <OrderStatusPill status={o.status} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
+    {o.status === 'paid' ? (
+      <span className="text-white/80">
+        Cliente pagou: <strong>{formatCurrency(o.amount)}</strong>
+      </span>
+    ) : (
+      <span className="text-white/75">
+        Valor do pedido: <strong>{formatCurrency(o.amount)}</strong>
+      </span>
+    )}
+
+  </div>
+</td>
+
+
+  {/* o resto da linha continua igual */}
+  <td className="px-4 py-3 text-center align-middle">
+    <div className="flex flex-col items-center gap-0.5 text-[10px] text-white/60">
+      {o.paymentMethod === 'pix' && (
+        <>
+          <QrCode className="h-3 w-3 text-emerald-300" /> Pix
+        </>
+      )}
+      {o.paymentMethod === 'card' && (
+        <>
+          <CreditCard className="h-3 w-3 text-white/70" /> Cartão
+        </>
+      )}
+      {o.paymentMethod === 'boleto' && (
+        <>
+          <Receipt className="h-3 w-3 text-white/70" /> Boleto
+        </>
+      )}
+    </div>
+  </td>
+
+  <td className="px-4 py-3 text-center text-[10px] text-white/55">
+    {formatDateTime(o.createdAt)}
+  </td>
+
+  <td className="px-4 py-3 text-center">
+    <OrderStatusPill status={o.status} />
+  </td>
+</tr>
+
+  ))}
+</tbody>
+
       </table>
     </div>
 
