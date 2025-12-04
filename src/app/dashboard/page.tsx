@@ -8,9 +8,7 @@ import {
   Wallet2,
   LineChart as LineChartIcon,
   ShoppingBag,
-  Users,
   ArrowUpRight,
-  ArrowDownRight,
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -59,13 +57,11 @@ type DashboardSummary = {
 
 type PeriodFilter = 'today' | 'yesterday' | 'last7' | 'last30'
 
-// ---- helpers de série pra deixar o gráfico bonito ----
+// ---- helpers de série ----
 
 /**
- * Prepara série por HORA (0h..23h) a partir dos pontos vindos da API.
- * - Compacta por hora (caso venham vários pontos na mesma hora)
- * - Preenche horas sem movimento com 0
- * - Adiciona label "00h", "01h" etc pra usar no eixo X
+ * Série por HORA (0..23).
+ * Agora NÃO é acumulado: cada ponto é o valor daquela hora.
  */
 function buildHourlySeries(series: DailyPoint[]) {
   const byHour = new Map<number, number>() // hour -> totalGross da hora
@@ -78,15 +74,13 @@ function buildHourlySeries(series: DailyPoint[]) {
 
   const data: { hour: number; label: string; totalGross: number }[] = []
 
-  let running = 0
   for (let h = 0; h < 24; h++) {
     const valueThisHour = byHour.get(h) ?? 0
-    running += valueThisHour // deixa acumulado pra linha não ficar “dura”
 
     data.push({
       hour: h,
       label: `${h.toString().padStart(2, '0')}h`,
-      totalGross: running,
+      totalGross: valueThisHour,
     })
   }
 
@@ -94,12 +88,12 @@ function buildHourlySeries(series: DailyPoint[]) {
 }
 
 /**
- * Série por DIA (quando período for 7 / 30 dias)
+ * Série por DIA (quando período for 7 / 30 dias).
+ * Mantém acumulado para ver crescimento no período.
  */
 function buildDailySeries(series: DailyPoint[]) {
   const sorted = [...series].sort(
-    (a, b) =>
-      new Date(a.date).getTime() - new Date(b.date).getTime(),
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
   )
 
   let running = 0
@@ -214,7 +208,6 @@ export default function DashboardPage() {
   }
 
   const periodLabel = summary?.periodLabel || 'Hoje'
-  const partnersCount = summary?.partners?.length ?? 0
 
   const formatCurrency = (value: number | null | undefined) => {
     if (value == null) return 'R$ 0,00'
@@ -226,8 +219,7 @@ export default function DashboardPage() {
 
   const rawSeries: DailyPoint[] = summary?.dailySeries ?? []
 
-  const isHourly =
-    periodFilter === 'today' || periodFilter === 'yesterday'
+  const isHourly = periodFilter === 'today' || periodFilter === 'yesterday'
 
   const chartData = isHourly
     ? buildHourlySeries(rawSeries)
@@ -241,6 +233,8 @@ export default function DashboardPage() {
       : periodFilter === 'last7'
       ? 'Últimos 7 dias'
       : 'Últimos 30 dias'
+
+  const totalGross = summary?.totalGross ?? 0
 
   return (
     <main className="flex min-h-screen bg-[#050505] text-white">
@@ -259,8 +253,8 @@ export default function DashboardPage() {
                   Visão geral financeira
                 </h1>
                 <p className="mt-1 max-w-md text-[12px] text-white/60">
-                  Acompanhe faturamento, lucro líquido e a sua comissão em cima
-                  do lucro dos sites operados com os parceiros.
+                  Acompanhe o faturamento, o lucro líquido e a evolução da
+                  receita dos seus sites em tempo real.
                 </p>
 
                 {summary && (
@@ -329,7 +323,7 @@ export default function DashboardPage() {
             </div>
           </header>
 
-          {/* KPI CARDS */}
+          {/* KPI CARDS – Focado em faturamento */}
           <section className="grid grid-cols-1 gap-4 md:grid-cols-4 mt-1">
             <DashboardStatCard
               icon={ShoppingBag}
@@ -343,52 +337,51 @@ export default function DashboardPage() {
             />
             <DashboardStatCard
               icon={LineChartIcon}
-              label="Lucro líquido dos projetos"
+              label="Lucro líquido"
               value={
                 loadingSummary || !summary
                   ? '—'
                   : formatCurrency(summary.totalNet)
               }
-              hint="Valor que sobra para divisão entre você e os parceiros."
+              hint="Receita que realmente ficou para o negócio após taxas e custos."
             />
             <DashboardStatCard
-              icon={Wallet2}
-              label="Sua parte (30% do lucro)"
+              icon={LineChartIcon}
+              label="Taxa de conversão"
               value={
                 loadingSummary || !summary
                   ? '—'
-                  : formatCurrency(summary.myCommissionTotal)
+                  : `${((summary.totalOrders / 1000) * 100).toFixed(2)}%`
               }
-              hint="Sua comissão calculada em cima do lucro líquido."
+              hint="Percentual estimado de conversão."
+            />
+            <DashboardStatCard
+              icon={ArrowUpRight}
+              label="Pedidos no período"
+              value={
+                loadingSummary || !summary
+                  ? '—'
+                  : `${summary.totalOrders} pedidos`
+              }
+              hint="Quantidade total de pedidos registrados nesse intervalo."
               accent
-            />
-            <DashboardStatCard
-              icon={Users}
-              label="Parceiros com venda"
-              value={
-                loadingSummary || !summary
-                  ? '—'
-                  : partnersCount.toString()
-              }
-              hint="Quantos parceiros tiveram vendas nesse período."
             />
           </section>
 
-          {/* GRID INFERIOR: GRÁFICO + RESUMOS */}
+          {/* BLOCO INFERIOR – APENAS GRÁFICO */}
           <div className="relative rounded-3xl border border-[#1b1b1b] bg-gradient-to-br from-[#090909] via-[#050505] to-[#020202] px-5 py-6 md:px-7 md:py-7 shadow-[0_0_20px_rgba(0,0,0,0.4)] overflow-hidden">
             <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent" />
             <div className="pointer-events-none absolute -left-24 -top-24 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl" />
 
-            <section className="relative grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
-              {/* Coluna esquerda – GRÁFICO ÚNICO */}
+            <section className="relative">
               <div className="rounded-2xl border border-[#202020] bg-[#080808] p-5">
                 <div className="mb-4 flex items-center justify-between gap-2">
                   <div>
-                    <p className="text-[11px] text-white/60">Receita</p>
+                    <p className="text-[11px] text-white/60">
+                      Receita líquida {isHourly ? 'por hora' : 'acumulada'}
+                    </p>
                     <p className="text-2xl font-semibold tracking-tight text-white">
-                      {summary
-                        ? formatCurrency(summary.totalNet)
-                        : 'R$ 0,00'}
+                      {summary ? formatCurrency(summary.totalNet) : 'R$ 0,00'}
                     </p>
                   </div>
                   <span className="text-[10px] text-white/45">
@@ -436,7 +429,7 @@ export default function DashboardPage() {
                                 style: 'currency',
                                 currency: 'BRL',
                               }),
-                              'Receita',
+                              isHourly ? 'Receita na hora' : 'Receita',
                             ]
                           }}
                         />
@@ -454,102 +447,6 @@ export default function DashboardPage() {
                     </ResponsiveContainer>
                   </div>
                 )}
-              </div>
-
-              {/* Coluna direita – Resumo por parceiro + resumo do período */}
-              <div className="space-y-6">
-                {/* Resumo por parceiro */}
-                <div className="rounded-2xl border border-[#202020] bg-[#080808] p-5">
-                  <div className="mb-4 flex items-center justify-between">
-                    <div>
-                      <h2 className="text-sm font-semibold">
-                        Resumo por parceiro
-                      </h2>
-                    </div>
-                    <span className="inline-flex items-center gap-1 rounded-full border border-[#262626] bg-black/30 px-2.5 py-1 text-[10px] text-white/60">
-                      <Users className="h-3 w-3" />
-                      {partnersCount} parceiros
-                    </span>
-                  </div>
-
-                  {loadingSummary ? (
-                    <div className="h-28 rounded-xl border border-[#262626] bg-black/30" />
-                  ) : summary && partnersCount > 0 ? (
-                    <ul className="space-y-2 text-[11px]">
-                      {summary.partners.map((p) => (
-                        <li
-                          key={p.id}
-                          className="flex items-center justify-between rounded-xl border border-[#262626] bg-black/30 px-4 py-3"
-                        >
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-[11px] font-semibold text-white/85">
-                              {p.name}
-                              <span className="ml-1 text-white/40">
-                                · {p.siteName}
-                              </span>
-                            </span>
-                            <span className="text-[10px] text-white/55">
-                              {p.totalOrders} pedidos ·{' '}
-                            </span>
-                          </div>
-                          <div className="text-right text-[10px] text-white/60">
-                            <p>Sua parte (30%)</p>
-                            <p className="font-semibold text-emerald-300">
-                              {formatCurrency(p.myCommission)}
-                            </p>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="rounded-xl border border-[#262626] bg-black/30 px-4 py-4 text-xs text-white/60">
-                      Nenhum parceiro com vendas nesse período.
-                    </div>
-                  )}
-                </div>
-
-                {/* Resumo do período */}
-                <div className="rounded-2xl border border-[#202020] bg-[#080808] p-5">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-sm font-semibold">Resumo do período</h2>
-                    <span className="text-[10px] text-white/45">
-                      {periodFilterLabel}
-                    </span>
-                  </div>
-
-                  {summary ? (
-                    <div className="space-y-3 text-[11px]">
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/60">Ticket médio</span>
-                        <span className="font-semibold text-white/85">
-                          {summary.averageTicket
-                            ? formatCurrency(summary.averageTicket)
-                            : '—'}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/60">
-                          Faturamento vs lucro
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-emerald-300">
-                          <ArrowUpRight className="h-3 w-3" />
-                          {formatCurrency(summary.totalNet)}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/60">Sua comissão</span>
-                        <span className="inline-flex items-center gap-1 text-emerald-300">
-                          <ArrowDownRight className="h-3 w-3" />
-                          {formatCurrency(summary.myCommissionTotal)}
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="h-20 rounded-xl border border-[#262626] bg-black/20" />
-                  )}
-                </div>
               </div>
             </section>
           </div>
@@ -607,6 +504,7 @@ function DashboardStatCard({
           </div>
 
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-black/30 border border-white/5">
+            {/* @ts-ignore tamanho custom */}
             <Icon className="h-4.5 w-4.5 text-white/70" />
           </div>
         </div>

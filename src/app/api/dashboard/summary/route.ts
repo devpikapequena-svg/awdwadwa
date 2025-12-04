@@ -52,7 +52,6 @@ function getPeriodRange(period?: string): {
     endOfTodayBrtFake.getTime() + BRAZIL_OFFSET_MS,
   )
 
-  // Helper de 1 dia em ms
   const ONE_DAY = 24 * 60 * 60 * 1000
 
   if (period === 'yesterday') {
@@ -74,7 +73,6 @@ function getPeriodRange(period?: string): {
   }
 
   if (period === 'last7') {
-    // últimos 7 dias = hoje + 6 dias pra trás, sempre em BRT
     const startLast7BrtFake = new Date(
       startOfTodayBrtFake.getTime() - 6 * ONE_DAY,
     )
@@ -82,7 +80,7 @@ function getPeriodRange(period?: string): {
 
     return {
       start,
-      end: nowUtc, // até agora
+      end: nowUtc,
       label: 'Últimos 7 dias',
     }
   }
@@ -101,15 +99,12 @@ function getPeriodRange(period?: string): {
   }
 
   // HOJE -> de meia-noite até AGORA no dia de Brasília
-  // se você quiser "meia-noite às meia-noite" MESMO, troca `nowUtc` por `endOfTodayUtc`
   return {
     start: startOfTodayUtc,
     end: nowUtc,
-    // se quiser “dia fechado”: end: endOfTodayUtc,
     label: 'Hoje',
   }
 }
-
 
 function mapStatusToFrontend(status: string): 'paid' | 'pending' | 'refunded' {
   const s = status.toLowerCase()
@@ -142,7 +137,6 @@ export async function GET(req: NextRequest) {
 
     const docs = await Order.find(filter).sort({ createdAt: -1 }).lean()
 
-    // slugs de site presentes nesse período
     const siteSlugs = Array.from(
       new Set(
         (docs as any[])
@@ -159,7 +153,6 @@ export async function GET(req: NextRequest) {
       configs.map((c: any) => [c.siteSlug as string, c]),
     )
 
-    // ====== Mapeia pedidos pro frontend ======
     type OrderSummary = {
       id: string
       siteName: string
@@ -172,7 +165,6 @@ export async function GET(req: NextRequest) {
       source?: string
     }
 
-    // todos os pedidos do período
     const allOrders: OrderSummary[] = (docs as any[]).map((doc) => {
       const totalCents = doc.totalAmountInCents || 0
       const netCents = doc.netAmountInCents || 0
@@ -189,8 +181,6 @@ export async function GET(req: NextRequest) {
       const cfg = cfgBySlug.get(slug)
 
       const siteName = cfg?.siteName || slug || 'Sem site'
-      const partnerName = cfg?.partnerName || 'Não configurado'
-
       const utm = doc.utm || {}
 
       return {
@@ -208,7 +198,7 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    // <<< AQUI: só pedidos pagos >>>
+    // apenas pagos
     const orders = allOrders.filter((o) => o.status === 'paid')
 
     const totalOrders = orders.length
@@ -221,7 +211,6 @@ export async function GET(req: NextRequest) {
     const averageTicket =
       totalOrders > 0 ? totalGross / totalOrders : null
 
-    // ====== Resumo por site/parceiro (PartnerSummary) ======
     type PartnerSummaryLocal = {
       id: string
       name: string
@@ -263,24 +252,52 @@ export async function GET(req: NextRequest) {
 
     const partners = Array.from(partnerMap.values())
 
-    // ====== Série diária para gráfico ======
-    type DailyBucket = {
+    // ====== Série para gráfico ======
+    type Bucket = {
       totalGross: number
       totalNet: number
       myCommission: number
       orders: number
     }
 
-    const dailyMap = new Map<string, DailyBucket>()
+    const isHourlyPeriod =
+      periodParam === 'today' || periodParam === 'yesterday'
+
+    const map = new Map<string, Bucket>()
 
     orders.forEach((o) => {
       const d = new Date(o.createdAt)
-      const dayKey = `${d.getFullYear()}-${String(
-        d.getMonth() + 1,
-      ).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-      if (!dailyMap.has(dayKey)) {
-        dailyMap.set(dayKey, {
+      let keyDate: Date
+
+      if (isHourlyPeriod) {
+        // agrupa por hora
+        keyDate = new Date(
+          d.getFullYear(),
+          d.getMonth(),
+          d.getDate(),
+          d.getHours(),
+          0,
+          0,
+          0,
+        )
+      } else {
+        // agrupa por dia
+        keyDate = new Date(
+          d.getFullYear(),
+          d.getMonth(),
+          d.getDate(),
+          0,
+          0,
+          0,
+          0,
+        )
+      }
+
+      const key = keyDate.toISOString()
+
+      if (!map.has(key)) {
+        map.set(key, {
           totalGross: 0,
           totalNet: 0,
           myCommission: 0,
@@ -288,14 +305,14 @@ export async function GET(req: NextRequest) {
         })
       }
 
-      const bucket = dailyMap.get(dayKey)!
+      const bucket = map.get(key)!
       bucket.totalGross += o.amount
       bucket.totalNet += o.profit
       bucket.myCommission += o.myCommission
       bucket.orders += 1
     })
 
-    const dailySeries = Array.from(dailyMap.entries())
+    const dailySeries = Array.from(map.entries())
       .sort(([a], [b]) => (a < b ? -1 : 1))
       .map(([date, bucket]) => ({
         date,
@@ -305,12 +322,12 @@ export async function GET(req: NextRequest) {
         orders: bucket.orders,
       }))
 
-    // ====== Últimos pedidos (apenas pagos) ======
     const lastOrders = orders
       .slice()
       .sort(
         (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+          new Date(b.createdAt).getTime() -
+          new Date(a.createdAt).getTime(),
       )
       .slice(0, 10)
 
