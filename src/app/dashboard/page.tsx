@@ -490,8 +490,6 @@ export default function DashboardPage() {
                             </span>
                             <span className="text-[10px] text-white/55">
                               {p.totalOrders} pedidos ·{' '}
-                              {formatCurrency(p.totalGross)} bruto ·{' '}
-                              {formatCurrency(p.totalNet)} lucro
                             </span>
                           </div>
                           <div className="text-right text-[10px] text-white/60">
