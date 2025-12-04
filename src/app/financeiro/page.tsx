@@ -436,9 +436,7 @@ export default function ResumoFinanceiroPage() {
               ) : (
                 <div className="rounded-2xl border border-[#202020] bg-[#080808] px-3.5 py-3 text-[11px]">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] text-white/55">
-                      Top parceiros (por comissão gerada)
-                    </span>
+     
                     {partners.length > 5 && (
                       <Link
                         href="/comissoes"
@@ -542,7 +540,7 @@ export default function ResumoFinanceiroPage() {
                             <div className="mt-2">
                               <div className="h-1.5 w-full rounded-full bg-white/5 overflow-hidden">
                                 <div
-                                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-sky-400"
+                                  className="h-full rounded-full bg-gradient-to-r from-emerald-400"
                                   style={{ width: `${percent}%` }}
                                 />
                               </div>
