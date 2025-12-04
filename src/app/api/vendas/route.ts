@@ -6,28 +6,65 @@ import PartnerProject from '@/models/PartnerProject'
 
 type Period = 'today' | 'yesterday' | 'last7' | 'last30'
 
+const BRAZIL_OFFSET_MS = 3 * 60 * 60 * 1000 // diferença de Brasília para UTC (UTC-3)
+
+/**
+ * Calcula os períodos SEMPRE considerando dia de Brasília
+ * (00:00 até 23:59:59 no fuso UTC-3), mesmo que o servidor esteja em UTC.
+ */
 function getPeriodRange(period?: string): {
   start: Date
   end: Date
   label: string
 } {
-  const now = new Date()
+  const nowUtc = new Date()
 
-  const startOfToday = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
+  // "Shift" para o horário de Brasília (fingindo que UTC é -3h)
+  const nowBrtFake = new Date(nowUtc.getTime() - BRAZIL_OFFSET_MS)
+
+  // Início e fim do "hoje" nesse horário fake (meia-noite até 23:59:59.999)
+  const startOfTodayBrtFake = new Date(
+    nowBrtFake.getFullYear(),
+    nowBrtFake.getMonth(),
+    nowBrtFake.getDate(),
     0,
     0,
     0,
     0,
   )
 
+  const endOfTodayBrtFake = new Date(
+    nowBrtFake.getFullYear(),
+    nowBrtFake.getMonth(),
+    nowBrtFake.getDate(),
+    23,
+    59,
+    59,
+    999,
+  )
+
+  // Converte esses limites de volta para UTC (que é o que está salvo no Mongo)
+  const startOfTodayUtc = new Date(
+    startOfTodayBrtFake.getTime() + BRAZIL_OFFSET_MS,
+  )
+  const endOfTodayUtc = new Date(
+    endOfTodayBrtFake.getTime() + BRAZIL_OFFSET_MS,
+  )
+
+  // Helper de 1 dia em ms
+  const ONE_DAY = 24 * 60 * 60 * 1000
+
   if (period === 'yesterday') {
-    const start = new Date(startOfToday)
-    start.setDate(start.getDate() - 1)
-    const end = new Date(startOfToday)
-    end.setMilliseconds(end.getMilliseconds() - 1)
+    const startYesterdayBrtFake = new Date(
+      startOfTodayBrtFake.getTime() - ONE_DAY,
+    )
+    const endYesterdayBrtFake = new Date(startOfTodayBrtFake.getTime() - 1)
+
+    const start = new Date(
+      startYesterdayBrtFake.getTime() + BRAZIL_OFFSET_MS,
+    )
+    const end = new Date(endYesterdayBrtFake.getTime() + BRAZIL_OFFSET_MS)
+
     return {
       start,
       end,
@@ -36,31 +73,42 @@ function getPeriodRange(period?: string): {
   }
 
   if (period === 'last7') {
-    const start = new Date(startOfToday)
-    start.setDate(start.getDate() - 6)
+    // últimos 7 dias = hoje + 6 dias pra trás, sempre em BRT
+    const startLast7BrtFake = new Date(
+      startOfTodayBrtFake.getTime() - 6 * ONE_DAY,
+    )
+    const start = new Date(startLast7BrtFake.getTime() + BRAZIL_OFFSET_MS)
+
     return {
       start,
-      end: now,
+      end: nowUtc, // até agora
       label: 'Últimos 7 dias',
     }
   }
 
   if (period === 'last30') {
-    const start = new Date(startOfToday)
-    start.setDate(start.getDate() - 29)
+    const startLast30BrtFake = new Date(
+      startOfTodayBrtFake.getTime() - 29 * ONE_DAY,
+    )
+    const start = new Date(startLast30BrtFake.getTime() + BRAZIL_OFFSET_MS)
+
     return {
       start,
-      end: now,
+      end: nowUtc,
       label: 'Últimos 30 dias',
     }
   }
 
+  // HOJE -> de meia-noite até AGORA no dia de Brasília
+  // se você quiser "meia-noite às meia-noite" MESMO, troca `nowUtc` por `endOfTodayUtc`
   return {
-    start: startOfToday,
-    end: now,
+    start: startOfTodayUtc,
+    end: nowUtc,
+    // se quiser “dia fechado”: end: endOfTodayUtc,
     label: 'Hoje',
   }
 }
+
 
 function mapStatusToFrontend(status: string): 'paid' | 'pending' | 'refunded' {
   const s = status.toLowerCase()
