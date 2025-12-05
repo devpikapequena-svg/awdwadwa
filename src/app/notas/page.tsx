@@ -1,3 +1,4 @@
+
 // app/comissoes/page.tsx
 'use client'
 
@@ -47,7 +48,7 @@ export default function ComissoesPage() {
   const [partners, setPartners] = useState<PartnerRow[]>([])
   const [loadingPartners, setLoadingPartners] = useState(true)
 
-  const [period, setPeriod] = useState<Period>('all')
+  const [period, setPeriod] = useState<Period>('today')
 
   // Form de pagamento recebido
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>('')
@@ -106,7 +107,7 @@ export default function ComissoesPage() {
     setLoadingPartners(true)
     try {
       const params = new URLSearchParams()
-      if (period !== 'all') {
+      if (period !== 'today') {
         params.set('period', period)
       }
 
@@ -753,3 +754,4 @@ function ResumoCard({
     </div>
   )
 }
+

@@ -10,6 +10,7 @@ import {
   Users,
   Wallet2,
   ReceiptText,
+  BarChart3,
   Menu,
   X,
 } from 'lucide-react'
@@ -50,7 +51,7 @@ export default function Sidebar({ user }: { user: any }) {
       <aside
         className={`
           fixed z-50 md:static
-          h-screen w-64 flex flex-col          /* AQUI: h-full -> h-screen */
+          h-screen w-64 flex flex-col
           border-r border-[#151515]
           bg-gradient-to-b from-[#050505] via-[#050505] to-[#02040a]
           px-5 py-6
@@ -129,6 +130,14 @@ export default function Sidebar({ user }: { user: any }) {
               icon={Wallet2}
               label="Resumo financeiro"
               active={pathname.startsWith('/financeiro')}
+              onClick={() => setMobileOpen(false)}
+            />
+
+            <SidebarItem
+              href="/ads"
+              icon={BarChart3}
+              label="Gastos ADS"
+              active={pathname.startsWith('/ads')}
               onClick={() => setMobileOpen(false)}
             />
 

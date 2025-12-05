@@ -7,79 +7,66 @@ import Order, { OrderDocument } from '@/models/Order'
 import AdSpend from '@/models/AdSpend'
 import { getCurrentUser } from '@/lib/auth/getCurrentUser'
 
-type Period = 'today' | 'yesterday' | 'last7' | 'last30'
+type Period = 'today' | 'yesterday' | 'last7' | 'last30' | 'all'
 
 const BRAZIL_OFFSET_MS = 3 * 60 * 60 * 1000 // UTC-3
 
 function getPeriodRange(period: Period): { start: Date; end: Date } {
-  const nowUtc = new Date()
+  const nowUtc = new Date();
+  const nowBrtFake = new Date(nowUtc.getTime() - BRAZIL_OFFSET_MS);
 
-  const nowBrtFake = new Date(nowUtc.getTime() - BRAZIL_OFFSET_MS)
-
-  const startOfTodayBrtFake = new Date(
+  const TODAY_START_BRT = new Date(
     nowBrtFake.getFullYear(),
     nowBrtFake.getMonth(),
     nowBrtFake.getDate(),
-    0,
-    0,
-    0,
-    0,
-  )
+    0, 0, 0, 0
+  );
 
-  const endOfTodayBrtFake = new Date(
+  const TODAY_END_BRT = new Date(
     nowBrtFake.getFullYear(),
     nowBrtFake.getMonth(),
     nowBrtFake.getDate(),
-    23,
-    59,
-    59,
-    999,
-  )
+    23, 59, 59, 999
+  );
 
-  const startOfTodayUtc = new Date(
-    startOfTodayBrtFake.getTime() + BRAZIL_OFFSET_MS,
-  )
-  const endOfTodayUtc = new Date(
-    endOfTodayBrtFake.getTime() + BRAZIL_OFFSET_MS,
-  )
+  const TODAY_START_UTC = new Date(TODAY_START_BRT.getTime() + BRAZIL_OFFSET_MS);
+  const TODAY_END_UTC   = new Date(TODAY_END_BRT.getTime()   + BRAZIL_OFFSET_MS);
 
-  const ONE_DAY = 24 * 60 * 60 * 1000
+  const ONE_DAY = 24 * 60 * 60 * 1000;
 
-  if (period === 'yesterday') {
-    const startYesterdayBrtFake = new Date(
-      startOfTodayBrtFake.getTime() - ONE_DAY,
-    )
-    const endYesterdayBrtFake = new Date(startOfTodayBrtFake.getTime() - 1)
-
-    const start = new Date(
-      startYesterdayBrtFake.getTime() + BRAZIL_OFFSET_MS,
-    )
-    const end = new Date(endYesterdayBrtFake.getTime() + BRAZIL_OFFSET_MS)
-    return { start, end }
+  if (period === "today") {
+    return { start: TODAY_START_UTC, end: TODAY_END_UTC };
   }
 
-  if (period === 'last7') {
-    const startLast7BrtFake = new Date(
-      startOfTodayBrtFake.getTime() - 6 * ONE_DAY,
-    )
-    const start = new Date(startLast7BrtFake.getTime() + BRAZIL_OFFSET_MS)
-    return { start, end: nowUtc }
+  if (period === "yesterday") {
+    const yStartBrt = new Date(TODAY_START_BRT.getTime() - ONE_DAY);
+    const yEndBrt   = new Date(TODAY_END_BRT.getTime()   - ONE_DAY);
+    return {
+      start: new Date(yStartBrt.getTime() + BRAZIL_OFFSET_MS),
+      end:   new Date(yEndBrt.getTime()   + BRAZIL_OFFSET_MS)
+    };
   }
 
-  if (period === 'last30') {
-    const startLast30BrtFake = new Date(
-      startOfTodayBrtFake.getTime() - 29 * ONE_DAY,
-    )
-    const start = new Date(startLast30BrtFake.getTime() + BRAZIL_OFFSET_MS)
-    return { start, end: nowUtc }
+  if (period === "last7") {
+    const startBrt = new Date(TODAY_START_BRT.getTime() - 6 * ONE_DAY);
+    return {
+      start: new Date(startBrt.getTime() + BRAZIL_OFFSET_MS),
+      end: TODAY_END_UTC
+    };
   }
 
-  // today
-  return {
-    start: startOfTodayUtc,
-    end: nowUtc,
+  if (period === "last30") {
+    const startBrt = new Date(TODAY_START_BRT.getTime() - 29 * ONE_DAY);
+    return {
+      start: new Date(startBrt.getTime() + BRAZIL_OFFSET_MS),
+      end: TODAY_END_UTC
+    };
   }
+
+  // all
+  return { start: new Date(0), end: TODAY_END_UTC };
 }
+
 
 // gera lista de refDate (YYYY-MM-DD) pros dias do período usando fuso de Brasília
 function getRefDatesForPeriod(period: Period): string[] {
@@ -145,7 +132,7 @@ export async function GET(req: NextRequest) {
     const partnerId = searchParams.get('partnerId')
     const periodParam = searchParams.get('period') as Period | null
 
-    const validPeriods: Period[] = ['today', 'yesterday', 'last7', 'last30']
+const validPeriods = ['today', 'yesterday', 'last7', 'last30', 'all']
     const hasPeriod = periodParam && validPeriods.includes(periodParam)
 
     // 🔹 parceiros (config de site + nome do parceiro)
