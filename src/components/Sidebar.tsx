@@ -122,17 +122,8 @@ export default function Sidebar({ user }: { user: any }) {
 
           <div className="space-y-3">
             <p className="px-1 text-[11px] uppercase tracking-[0.16em] text-white/35">
-              Integrações & financeiro
+              financeiro
             </p>
-
-            <SidebarItem
-              href="/financeiro"
-              icon={Wallet2}
-              label="Resumo financeiro"
-              active={pathname.startsWith('/financeiro')}
-              onClick={() => setMobileOpen(false)}
-            />
-
             <SidebarItem
               href="/ads"
               icon={BarChart3}
