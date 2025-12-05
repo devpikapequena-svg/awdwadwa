@@ -38,12 +38,16 @@ type PartnerRow = {
   payments: PartnerPaymentRow[]
 }
 
+type Period = 'all' | 'today' | 'yesterday' | 'last7' | 'last30'
+
 export default function ComissoesPage() {
   const [user, setUser] = useState<User | null>(null)
   const [loadingUser, setLoadingUser] = useState(true)
 
   const [partners, setPartners] = useState<PartnerRow[]>([])
   const [loadingPartners, setLoadingPartners] = useState(true)
+
+  const [period, setPeriod] = useState<Period>('all')
 
   // Form de pagamento recebido
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>('')
@@ -101,7 +105,15 @@ export default function ComissoesPage() {
   const fetchPartners = async () => {
     setLoadingPartners(true)
     try {
-      const res = await fetch('/api/notas', {
+      const params = new URLSearchParams()
+      if (period !== 'all') {
+        params.set('period', period)
+      }
+
+      const query = params.toString()
+      const url = `/api/notas${query ? `?${query}` : ''}`
+
+      const res = await fetch(url, {
         method: 'GET',
         credentials: 'include',
       })
@@ -118,7 +130,6 @@ export default function ComissoesPage() {
 
       setPartners(rows)
 
-      // se ainda não tiver partner selecionado, pega o primeiro
       if (rows.length > 0 && !selectedPartnerId) {
         setSelectedPartnerId(rows[0].partnerId)
       }
@@ -138,13 +149,13 @@ export default function ComissoesPage() {
     if (!user) return
     fetchPartners()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user])
+  }, [user, period])
 
   const selectedPartner = partners.find(
     (p) => p.partnerId === selectedPartnerId,
   )
 
-  // Totais gerais
+  // Totais gerais (já considerando comissão com ADS descontado)
   const totalCommission = partners.reduce(
     (acc, p) => acc + (p.myCommission || 0),
     0,
@@ -199,7 +210,6 @@ export default function ComissoesPage() {
         return
       }
 
-      // recarrega dados
       setAmount('')
       setNote('')
       await fetchPartners()
@@ -246,46 +256,88 @@ export default function ComissoesPage() {
     )
   }
 
+  const periodLabelMap: Record<Period, string> = {
+    all: 'Tudo que já foi gerado',
+    today: 'Hoje (horário de Brasília)',
+    yesterday: 'Ontem (horário de Brasília)',
+    last7: 'Últimos 7 dias',
+    last30: 'Últimos 30 dias',
+  }
+
   return (
     <main className="flex min-h-screen bg-[#050505] text-white">
       <Sidebar user={user} />
 
       <section className="flex-1 overflow-y-auto px-8 py-8 flex justify-center">
         <div className="w-full max-w-6xl flex flex-col gap-8">
-          {/* HEADER IGUAL AS OUTRAS PÁGINAS (CARD PREMIUM) */}
+          {/* HEADER */}
           <header className="relative overflow-hidden rounded-3xl border border-[#202020] bg-gradient-to-br from-[#0b0b0b] via-[#080808] to-[#050505] px-6 py-6 shadow-[0_0_25px_rgba(0,0,0,0.4)]">
-            {/* linha glow topo */}
             <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/60 to-transparent" />
-            {/* glow canto */}
             <div className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl" />
             <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
+              <div className="flex-1 min-w-0">
                 <h1 className="text-2xl font-semibold tracking-tight text-white">
                   Comissões & repasses
                 </h1>
                 <p className="mt-1 max-w-md text-[12px] text-white/60">
-                  Controle tudo que os sites já geraram de comissão pra você, o que
-                  já foi repassado e o saldo que ainda falta acertar com cada parceiro.
+                  Controle tudo que os sites já geraram de comissão pra você,
+                  já considerando o que você gastou em tráfego (ADS) em cada
+                  dia e cada site.
+                </p>
+                <p className="mt-1 text-[11px] text-white/45">
+                  Período selecionado:{' '}
+                  <span className="text-white/75">
+                    {periodLabelMap[period]}
+                  </span>
                 </p>
               </div>
 
-              <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-black/20 px-4 py-2 backdrop-blur-sm">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 shadow-inner">
-                  <BarChart3 className="h-3.5 w-3.5 text-white/70" />
+              <div className="flex flex-col items-stretch gap-3 md:items-end">
+                <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-black/20 px-4 py-2 backdrop-blur-sm">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 shadow-inner">
+                    <BarChart3 className="h-3.5 w-3.5 text-white/70" />
+                  </div>
+                  <div className="flex flex-col leading-tight">
+                    <span className="text-[10px] uppercase tracking-wider text-white/50">
+                      Visão
+                    </span>
+                    <span className="text-[11px] text-white/80">
+                      Comissão líquida (vendas – ADS)
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-col leading-tight">
-                  <span className="text-[10px] uppercase tracking-wider text-white/50">
-                    Visão
-                  </span>
-                  <span className="text-[11px] text-white/80">
-                    Comissões geradas x repasses recebidos
-                  </span>
+
+                {/* Filtro de período */}
+                <div className="flex flex-wrap gap-1.5 justify-end">
+                  {([
+                    { value: 'today', label: 'Hoje' },
+                    { value: 'yesterday', label: 'Ontem' },
+                    { value: 'last7', label: 'Últimos 7' },
+                    { value: 'last30', label: 'Últimos 30' },
+                    { value: 'all', label: 'Tudo' },
+                  ] as { value: Period; label: string }[]).map((p) => {
+                    const active = period === p.value
+                    return (
+                      <button
+                        key={p.value}
+                        type="button"
+                        onClick={() => setPeriod(p.value)}
+                        className={`rounded-full border px-3 py-1.5 text-[10px] transition ${
+                          active
+                            ? 'border-emerald-400 bg-emerald-500/15 text-emerald-200'
+                            : 'border-white/10 bg-black/30 text-white/55 hover:border-white/25 hover:text-white/80'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             </div>
           </header>
 
-
+          {/* CARDS RESUMO */}
           <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <ResumoCard
               icon={Wallet2}
@@ -307,11 +359,9 @@ export default function ComissoesPage() {
 
           {/* GRID PRINCIPAL */}
           <section className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2.1fr)_minmax(0,1.2fr)]">
-            {/* TABELA PRINCIPAL – ESTILO NOVO */}
+            {/* TABELA PRINCIPAL */}
             <div className="relative rounded-3xl border border-[#1b1b1b] bg-gradient-to-br from-[#090909] via-[#050505] to-[#020202] px-5 py-5 md:px-7 md:py-6 overflow-hidden">
-              {/* linha glow topo */}
               <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent" />
-              {/* glow de fundo */}
               <div className="pointer-events-none absolute -right-24 -top-24 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl" />
 
               <div className="relative mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -320,8 +370,9 @@ export default function ComissoesPage() {
                     Saldo por parceiro
                   </h2>
                   <p className="mt-1 text-[11px] text-white/55">
-                    Sua comissão calculada sobre as vendas de cada site, o que
-                    já entrou na sua mão e o que ainda falta cada parceiro te pagar.
+                    Para cada site, o sistema pega tudo que entrou líquido
+                    nesse período, desconta o que você gastou em ADS no mesmo
+                    intervalo e só então calcula seus 30% de comissão.
                   </p>
                 </div>
               </div>
@@ -437,11 +488,9 @@ export default function ComissoesPage() {
               )}
             </div>
 
-            {/* CARD DE REGISTRO DE PAGAMENTO – ESTILO NOVO */}
+            {/* CARD DE REGISTRO DE PAGAMENTO */}
             <div className="relative rounded-3xl border border-[#1b1b1b] bg-gradient-to-br from-[#090909] via-[#050505] to-[#020202] px-5 py-5 md:px-7 md:py-6 overflow-hidden">
-              {/* linha glow topo */}
               <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent" />
-              {/* glow */}
               <div className="pointer-events-none absolute -right-24 -bottom-24 h-40 w-40 rounded-full bg-emerald-500/12 blur-3xl" />
 
               <div className="relative">
@@ -475,7 +524,7 @@ export default function ComissoesPage() {
 
                     {selectedPartner && (
                       <p className="text-[10px] text-white/45">
-                        Comissão gerada:{' '}
+                        Comissão (já descontando ADS):{' '}
                         <span className="text-white/75">
                           {formatCurrency(selectedPartner.myCommission)}
                         </span>{' '}
@@ -553,13 +602,11 @@ export default function ComissoesPage() {
           </section>
         </div>
 
-        {/* MODAL HISTÓRICO DE PAGAMENTOS – ESTILO NOVO */}
+        {/* MODAL HISTÓRICO DE PAGAMENTOS */}
         {historyPartner && (
           <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm">
             <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-[#2a2a2a] bg-gradient-to-br from-[#070707] via-[#050505] to-[#020202] px-5 py-5 md:px-6 md:py-6 shadow-[0_24px_120px_rgba(0,0,0,0.9)]">
-              {/* linha glow topo */}
               <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent" />
-              {/* glow canto */}
               <div className="pointer-events-none absolute -right-24 -top-24 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl" />
 
               <div className="relative flex items-start justify-between gap-4">
@@ -619,14 +666,14 @@ export default function ComissoesPage() {
                       {historyPartner.payments.map((pg) => (
                         <li
                           key={pg.id}
-                          className="flex items-start justify_between gap-3 px-4 py-2.5"
+                          className="flex items-start justify-between gap-3 px-4 py-2.5"
                         >
                           <div className="flex flex-col gap-0.5">
                             <span className="text-[11px] font-medium text-white">
                               {formatCurrency(pg.amount)}
                             </span>
                             {pg.note && (
-                              <span className="text-[10px] text_white/55">
+                              <span className="text-[10px] text-white/55">
                                 {pg.note}
                               </span>
                             )}
@@ -656,7 +703,7 @@ export default function ComissoesPage() {
   )
 }
 
-/* COMPONENTE RESUMO – MESMO ESTILO DOS CARDS DO RESUMO FINANCEIRO */
+/* COMPONENTE RESUMO */
 
 function ResumoCard({
   icon: Icon,
@@ -679,10 +726,8 @@ function ResumoCard({
         transition-all duration-300 overflow-hidden
       "
     >
-      {/* Linha neon topo */}
       <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
 
-      {/* Glow canto */}
       <div
         className={`pointer-events-none absolute -right-14 -top-14 h-24 w-24 rounded-full ${
           accent ? 'bg-emerald-500/10' : 'bg-white/5'
