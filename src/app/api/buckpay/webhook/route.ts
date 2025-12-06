@@ -147,20 +147,13 @@ export async function POST(req: NextRequest) {
       // Corpo simples: só o valor
       const body = `Valor: ${valorReais}`
 
-      // 🔊 ID do som por status (usado pelo service worker)
-      const soundByStatus: Record<NotificationStatusKey, string> = {
-        paid: 'sale_approved',
-        pending: 'sale_pending',
-        med: 'sale_refunded',
-      }
-
       await sendPushForStatus(notificationStatusKey, {
         title,
         body,
         url: '/mobile/comissoes',
-        sound: soundByStatus[notificationStatusKey],
       })
     }
+
 
     return NextResponse.json({ ok: true })
   } catch (err) {
@@ -171,7 +164,6 @@ export async function POST(req: NextRequest) {
     )
   }
 }
-
 function normalizeStatusFromBuckpay(
   event?: string,
   status?: string,
@@ -183,6 +175,7 @@ function normalizeStatusFromBuckpay(
   if (e === 'transaction.processed' || s === 'paid') return 'paid'
   if (e === 'transaction.created' || s === 'pending') return 'waiting_payment'
 
+  // 🧠 Heurística de segurança:
   // qualquer status que "pareça" pago
   if (
     s.includes('paid') ||
@@ -223,7 +216,7 @@ function mapOrderStatusToNotificationStatus(
     return 'med'
   }
 
-  // fallback por substring
+  // 🧠 fallback por substring
   if (
     s.includes('paid') ||
     s.includes('approved') ||

@@ -16,12 +16,10 @@ if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
   webPush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
 }
 
-// 👇 adicionamos o sound aqui
 type PushPayload = {
   title: string
   body: string
   url?: string
-  sound?: string
 }
 
 export async function sendPushForStatus(
@@ -45,7 +43,6 @@ export async function sendPushForStatus(
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
     url: payload.url || '/mobile',
-    sound: payload.sound, // 👈 vai junto pro service worker
   })
 
   for (const sub of subs) {

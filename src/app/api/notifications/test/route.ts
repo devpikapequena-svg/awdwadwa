@@ -1,4 +1,3 @@
-// app/api/notifications/test/route.ts
 import { NextResponse } from 'next/server'
 import webpush from 'web-push'
 
@@ -10,31 +9,40 @@ const VAPID_CONTACT_EMAIL =
 
 let vapidReady = false
 
-if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
-  console.warn('[PUSH] VAPID keys não configuradas. Verifique ENV.')
-} else {
+export function configureVapid() {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    console.warn('[PUSH] VAPID keys ausentes.')
+    return false
+  }
+
   try {
     webpush.setVapidDetails(
       VAPID_CONTACT_EMAIL,
       VAPID_PUBLIC_KEY,
       VAPID_PRIVATE_KEY,
     )
-    vapidReady = true
     console.log('[PUSH] VAPID configurado com sucesso.')
+    return true
   } catch (err) {
     console.error('[PUSH] Erro ao configurar VAPID:', err)
+    return false
   }
 }
 
+// 🔧 CONFIGURA APENAS UMA VEZ
+if (!vapidReady) {
+  vapidReady = configureVapid()
+}
+
 export async function GET() {
-  // Essa rota é só de TESTE, não pode quebrar o build nunca
+  // Nunca quebrar o build — sempre retornar 200
   if (!vapidReady) {
-    console.log('[NOTIFICATIONS TEST] VAPID não configurado, retornando status "desativado".')
     return NextResponse.json(
       {
         ok: false,
+        configured: false,
         message:
-          'Notificações push não estão configuradas (VAPID ausente nas variáveis de ambiente).',
+          'VAPID não configurado. Defina NEXT_PUBLIC_VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY.',
       },
       { status: 200 },
     )
@@ -43,8 +51,9 @@ export async function GET() {
   return NextResponse.json(
     {
       ok: true,
-      message: 'Notificações push configuradas corretamente.',
+      configured: true,
       publicKey: VAPID_PUBLIC_KEY,
+      message: 'Push notifications configuradas corretamente.',
     },
     { status: 200 },
   )
