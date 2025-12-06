@@ -134,24 +134,23 @@ export async function POST(req: NextRequest) {
         currency: 'BRL',
       })
 
-      // Títulos simples, sem emoji
-      const tituloPorStatus: Record<NotificationStatusKey, string> = {
-        paid: 'Venda aprovada',
-        pending: 'Venda pendente',
-        med: 'Venda estornada',
-      }
+const tituloPorStatus: Record<NotificationStatusKey, string> = {
+  paid: 'Venda aprovada',
+  pending: 'Venda pendente',
+  med: 'Venda estornada',
+}
 
-      const title =
-        tituloPorStatus[notificationStatusKey] || 'Atualização de venda'
+const title =
+  tituloPorStatus[notificationStatusKey] || 'Atualização de venda'
 
-      // Corpo simples: só o valor
-      const body = `Valor: ${valorReais}`
+const body = `Valor: ${valorReais}`
 
-      await sendPushForStatus(notificationStatusKey, {
-        title,
-        body,
-        url: '/mobile/comissoes',
-      })
+await sendPushForStatus(notificationStatusKey, {
+  title,
+  body,
+  url: '/mobile/comissoes',
+})
+
     }
 
 
