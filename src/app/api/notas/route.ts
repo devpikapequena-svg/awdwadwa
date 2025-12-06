@@ -118,7 +118,10 @@ export async function GET(req: NextRequest) {
     //
     // 🔥 PEDIDOS
     //
-    const orderFilter: any = { gateway: 'buckpay', status: 'paid' }
+const orderFilter: any = { 
+  status: 'paid',
+  gateway: { $in: ['buckpay', 'blackcat'] },
+}
 
     if (period !== 'all') {
       orderFilter.createdAt = { $gte: start, $lte: end }

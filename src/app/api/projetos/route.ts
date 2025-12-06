@@ -11,10 +11,10 @@ export async function GET(req: NextRequest) {
     await connectDB();
 
     // 🔹 Somente pedidos BUCKPAY que estão PAGOS
-    const orders = await Order.find({
-      gateway: "buckpay",
-      status: "paid",
-    }).lean();
+const orders = await Order.find({
+  status: "paid",
+  gateway: { $in: ["buckpay", "blackcat"] },
+}).lean();
 
     type ProjectAgg = {
       siteSlug: string;

@@ -130,10 +130,9 @@ export async function GET(req: NextRequest) {
 
     const { start, end, label } = getPeriodRange(periodParam)
 
-    const filter: any = {
-      createdAt: { $gte: start, $lte: end },
-      gateway: 'buckpay',
-    }
+const filter: any = {
+  createdAt: { $gte: start, $lte: end },
+}
 
     const docs = await Order.find(filter).sort({ createdAt: -1 }).lean()
 
