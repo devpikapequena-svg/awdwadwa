@@ -1,36 +1,30 @@
+// app/api/buckpay-webhook/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/connectDB'
 import Order from '@/models/Order'
+import {
+  sendPushForStatus,
+  NotificationStatusKey,
+} from '@/lib/push'
 
-/**
- * Webhook da Buckpay -> painel central
- * Buckpay envia eventos como:
- *  - transaction.created (pendente)
- *  - transaction.processed (paga)
- */
 export async function POST(req: NextRequest) {
-  // --- 1) Descobre qual site é pelo query (?site=mlk1, ?site=mlk2, etc)
   const url = new URL(req.url)
-  let siteSlug =
+  const siteSlug =
     url.searchParams.get('site') ||
     url.searchParams.get('siteSlug') ||
     'unknown'
 
-  // --- 2) Segurança opcional via header
   const secretEnv = process.env.BUCKPAY_WEBHOOK_SECRET
   const incomingSecret = req.headers.get('x-webhook-secret')
 
   if (secretEnv && (!incomingSecret || incomingSecret !== secretEnv)) {
-    console.warn('[Buckpay Webhook] Segredo inválido.')
     return new NextResponse('Unauthorized', { status: 401 })
   }
 
-  // --- 3) Lê o body enviado pela Buckpay
   let body: any
   try {
     body = await req.json()
-  } catch (err) {
-    console.error('[Buckpay Webhook] Body inválido:', err)
+  } catch {
     return NextResponse.json({ error: 'Payload inválido.' }, { status: 400 })
   }
 
@@ -38,79 +32,17 @@ export async function POST(req: NextRequest) {
   const data: any = body.data
 
   if (!event || !data) {
-    console.error('[Buckpay Webhook] event ou data ausente:', body)
     return NextResponse.json(
       { error: 'event ou data ausente.' },
       { status: 400 },
     )
   }
 
-  // ========================================================================
-  // LOG BONITÃO DO QUE A BUCKPAY MANDOU
-  // ========================================================================
-  try {
-    console.log('═════════════════════════════════════════════')
-    console.log('🔥 BUCKPAY WEBHOOK RECEBIDO')
-    console.log('═════════════════════════════════════════════')
-
-    console.log('🔹 EVENTO:', event)
-    console.log('🔹 SITE:', siteSlug)
-    console.log('🔹 STATUS:', data?.status)
-    console.log('🔹 MÉTODO:', data?.payment_method)
-
-    console.log('\n👤 CLIENTE')
-    console.log('   Nome:', data?.buyer?.name)
-    console.log('   Email:', data?.buyer?.email)
-    console.log('   Telefone:', data?.buyer?.phone)
-    console.log('   Documento:', data?.buyer?.document)
-
-    console.log('\n💰 VALORES')
-    console.log('   Total (centavos):', data?.total_amount)
-    if (typeof data?.total_amount === 'number') {
-      console.log(
-        '   Total (reais): R$',
-        (data.total_amount / 100).toFixed(2),
-      )
-    }
-    console.log('   Líquido (centavos):', data?.net_amount)
-
-    console.log('\n📦 OFERTA')
-    console.log('   Nome:', data?.offer?.name)
-    console.log('   Preço (discount_price):', data?.offer?.discount_price)
-    console.log('   Quantidade:', data?.offer?.quantity)
-
-    console.log('\n📌 UTM / TRACKING')
-    console.log('   ref:', data?.tracking?.ref)
-    console.log('   src:', data?.tracking?.src)
-    console.log('   utm.source:', data?.tracking?.utm?.source)
-    console.log('   utm.medium:', data?.tracking?.utm?.medium)
-    console.log('   utm.campaign:', data?.tracking?.utm?.campaign)
-    console.log('   utm.id:', data?.tracking?.utm?.id)
-    console.log('   utm.content:', data?.tracking?.utm?.content)
-    console.log('   utm.term:', data?.tracking?.utm?.term)
-
-    console.log('\n🕒 Criado em:', data?.created_at)
-
-    console.log('\n🔍 RAW COMPLETO:')
-    console.dir(body, { depth: null, colors: true })
-
-    console.log('═════════════════════════════════════════════')
-  } catch (logErr) {
-    console.error('[Buckpay Webhook] Erro ao logar payload:', logErr)
-  }
-  // ========================================================================
-
-  // Exemplo vindo da doc:
-  // data.id, data.status, data.total_amount, data.net_amount, data.offer, data.buyer, data.tracking...
   const buckpayId: string | undefined = data.id
   const buckpayStatus: string | undefined = data.status
   const paymentMethod: string | undefined = data.payment_method
 
   if (!buckpayId || !buckpayStatus) {
-    console.error('[Buckpay Webhook] id/status ausente:', {
-      buckpayId,
-      buckpayStatus,
-    })
     return NextResponse.json(
       { error: 'id ou status ausente.' },
       { status: 400 },
@@ -134,11 +66,9 @@ export async function POST(req: NextRequest) {
     document: (buyer.document || '').replace(/\D/g, ''),
   }
 
-  // Como o webhook só manda uma "offer",
-  // montamos um array de itens com 1 item.
   const items = [
     {
-      id: offer.id || '', // se não vier id, fica vazio
+      id: offer.id || '',
       name: offer.name || '',
       quantity: offer.quantity || 1,
       priceInCents:
@@ -148,25 +78,26 @@ export async function POST(req: NextRequest) {
     },
   ]
 
-  // Normaliza pra status interno do painel
   const normalizedStatus = normalizeStatusFromBuckpay(event, buckpayStatus)
+  const notificationStatusKey = mapOrderStatusToNotificationStatus(
+    normalizedStatus,
+  )
 
   try {
     await connectDB()
 
-    // Upsert pela transação da Buckpay
     const now = new Date()
 
     await Order.findOneAndUpdate(
       { gateway: 'buckpay', gatewayTransactionId: buckpayId },
       {
         $set: {
-          siteSlug, // <- aqui separa qual site é (mlk1, mlk2, etc)
+          siteSlug,
           gateway: 'buckpay',
           gatewayTransactionId: buckpayId,
           rawGatewayStatus: buckpayStatus,
           rawGatewayEvent: event,
-          status: normalizedStatus, // waiting_payment, paid, etc
+          status: normalizedStatus,
 
           paymentMethod: paymentMethod || 'pix',
           totalAmountInCents,
@@ -187,7 +118,6 @@ export async function POST(req: NextRequest) {
             utm_content: utm.content || null,
           },
           items,
-
           updatedAt: now,
         },
         $setOnInsert: {
@@ -197,39 +127,112 @@ export async function POST(req: NextRequest) {
       { upsert: true, new: true },
     )
 
-    console.log(
-      '[Buckpay Webhook] Ordem sincronizada:',
-      buckpayId,
-      'status:',
-      normalizedStatus,
-      'site:',
-      siteSlug,
-    )
+    // 🔔 SE TIVER STATUS MAPEADO, DISPARA PUSH
+    if (notificationStatusKey) {
+      const valorReais = (totalAmountInCents / 100).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+      })
+
+      const tituloPorStatus: Record<NotificationStatusKey, string> = {
+        paid: '💸 Nova venda aprovada',
+        pending: '⏳ Venda pendente',
+        med: '↩️ Venda estornada / ajustada',
+      }
+
+      const title = tituloPorStatus[notificationStatusKey] || 'Atualização de venda'
+
+      const body = `${offer.name || 'Pedido'} - ${valorReais} • Status: ${normalizedStatus.toUpperCase()}`
+
+      await sendPushForStatus(notificationStatusKey, {
+        title,
+        body,
+        url: '/mobile/comissoes',
+      })
+    }
 
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error('[Buckpay Webhook] Erro ao salvar no banco:', err)
+    console.error('[Buckpay Webhook] Erro ao salvar/mandar push:', err)
     return NextResponse.json(
       { error: 'Erro interno ao salvar ordem.' },
       { status: 500 },
     )
   }
 }
-
 function normalizeStatusFromBuckpay(
   event?: string,
   status?: string,
 ): string {
-  const e = (event || '').toLowerCase()
-  const s = (status || '').toLowerCase()
+  const e = (event || '').trim().toLowerCase()
+  const s = (status || '').trim().toLowerCase()
 
-  // transaction.processed + status paid = pago
+  // Casos explícitos da Buckpay
   if (e === 'transaction.processed' || s === 'paid') return 'paid'
+  if (e === 'transaction.created' || s === 'pending') return 'waiting_payment'
 
-  // transaction.created + status pending = aguardando
-  if (e === 'transaction.created' || s === 'pending')
+  // 🧠 Heurística de segurança:
+  // qualquer status que "pareça" pago
+  if (
+    s.includes('paid') ||
+    s.includes('approved') ||
+    s.includes('success') ||
+    s.includes('processed')
+  ) {
+    return 'paid'
+  }
+
+  // qualquer coisa que pareça pendente
+  if (s.includes('wait') || s.includes('pend')) {
     return 'waiting_payment'
+  }
 
-  // você pode adicionar outros se a Buckpay tiver mais eventos/status
+  // qualquer coisa que pareça estorno/cancelamento
+  if (
+    s.includes('refun') || // refund, refunded
+    s.includes('charge') || // chargeback
+    s.includes('cancel') // cancel, canceled, cancelled
+  ) {
+    return 'refunded'
+  }
+
   return s || 'unknown'
+}
+
+// Mapeia status interno do pedido -> opção marcada na tela (paid/pending/med)
+function mapOrderStatusToNotificationStatus(
+  orderStatus: string,
+): NotificationStatusKey | null {
+  const s = (orderStatus || '').trim().toLowerCase()
+
+  // casos diretos
+  if (s === 'paid') return 'paid'
+  if (s === 'waiting_payment' || s === 'pending') return 'pending'
+  if (['refunded', 'chargeback', 'canceled', 'cancelled'].includes(s)) {
+    return 'med'
+  }
+
+  // 🧠 fallback por substring
+  if (
+    s.includes('paid') ||
+    s.includes('approved') ||
+    s.includes('success') ||
+    s.includes('processed')
+  ) {
+    return 'paid'
+  }
+
+  if (s.includes('wait') || s.includes('pend')) {
+    return 'pending'
+  }
+
+  if (
+    s.includes('refun') ||
+    s.includes('charge') ||
+    s.includes('cancel')
+  ) {
+    return 'med'
+  }
+
+  return null
 }

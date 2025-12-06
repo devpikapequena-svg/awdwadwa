@@ -1,3 +1,4 @@
+// components/PwaRegister.tsx
 'use client'
 
 import { useEffect } from 'react'
@@ -7,9 +8,18 @@ export function PwaRegister() {
     if (typeof window === 'undefined') return
     if (!('serviceWorker' in navigator)) return
 
-    navigator.serviceWorker
-      .register('/sw.js')
-      .catch((err) => console.error('SW registration failed', err))
+    const registerSW = async () => {
+      try {
+        const reg = await navigator.serviceWorker.register('/sw.js', {
+          scope: '/',
+        })
+        console.log('[PWA] Service worker registrado:', reg)
+      } catch (err) {
+        console.error('[PWA] Erro ao registrar service worker:', err)
+      }
+    }
+
+    registerSW()
   }, [])
 
   return null

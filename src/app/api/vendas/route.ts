@@ -51,7 +51,6 @@ function getPeriodRange(period?: string): {
     endOfTodayBrtFake.getTime() + BRAZIL_OFFSET_MS,
   )
 
-  // Helper de 1 dia em ms
   const ONE_DAY = 24 * 60 * 60 * 1000
 
   if (period === 'yesterday') {
@@ -73,7 +72,6 @@ function getPeriodRange(period?: string): {
   }
 
   if (period === 'last7') {
-    // últimos 7 dias = hoje + 6 dias pra trás, sempre em BRT
     const startLast7BrtFake = new Date(
       startOfTodayBrtFake.getTime() - 6 * ONE_DAY,
     )
@@ -81,7 +79,7 @@ function getPeriodRange(period?: string): {
 
     return {
       start,
-      end: nowUtc, // até agora
+      end: nowUtc,
       label: 'Últimos 7 dias',
     }
   }
@@ -99,22 +97,19 @@ function getPeriodRange(period?: string): {
     }
   }
 
-  // HOJE -> de meia-noite até AGORA no dia de Brasília
-  // se você quiser "meia-noite às meia-noite" MESMO, troca `nowUtc` por `endOfTodayUtc`
+  // HOJE -> de meia-noite até AGORA (BRT)
   return {
     start: startOfTodayUtc,
     end: nowUtc,
-    // se quiser “dia fechado”: end: endOfTodayUtc,
     label: 'Hoje',
   }
 }
 
-function mapStatusToFrontend(status: string): 'paid' | 'pending' | 'refunded' {
+function mapStatusToFrontend(status: string): 'paid' | 'pending' | 'med' {
   const s = status.toLowerCase()
 
   if (s === 'paid' || s === 'approved') return 'paid'
-  if (s === 'refunded' || s === 'chargeback' || s === 'canceled')
-    return 'refunded'
+  if (s === 'med' || s === 'chargeback' || s === 'canceled') return 'med'
 
   return 'pending'
 }
@@ -128,13 +123,13 @@ type Sale = {
   amount: number
   netAmount: number
   myCommission: number
-  status: 'paid' | 'pending' | 'refunded'
+  status: 'paid' | 'pending' | 'med'
   paymentMethod: 'pix' | 'card' | 'boleto' | string
   source?: string | null
   campaign?: string | null
   createdAt: string
   customerName?: string | null
-  gateway: 'buckpay' | 'blackcat' | string // 👈 AQUI
+  gateway: 'buckpay' | 'blackcat' | string
 }
 
 export async function GET(req: NextRequest) {
@@ -157,7 +152,6 @@ export async function GET(req: NextRequest) {
 
     const docs = await Order.find(filter).sort({ createdAt: -1 }).lean()
 
-    // ===== pega todos os slugs dos pedidos desse período =====
     const siteSlugs = Array.from(
       new Set(
         (docs as any[])
@@ -166,7 +160,6 @@ export async function GET(req: NextRequest) {
       ),
     )
 
-    // ===== busca configs de parceiro/site pra esses slugs =====
     const configs = await PartnerProject.find({
       siteSlug: { $in: siteSlugs },
     }).lean()
@@ -194,7 +187,6 @@ export async function GET(req: NextRequest) {
       const partnerName = cfg?.partnerName || 'Não configurado'
 
       const utm = doc.utm || {}
-
       const gateway: string = doc.gateway || 'unknown'
 
       return {
@@ -212,10 +204,7 @@ export async function GET(req: NextRequest) {
         createdAt: doc.createdAt
           ? new Date(doc.createdAt).toISOString()
           : new Date().toISOString(),
-
         customerName: doc.customer?.name || null,
-
-        // 👇 manda pro front qual gateway gerou essa venda
         gateway: gateway as 'buckpay' | 'blackcat' | string,
       }
     })

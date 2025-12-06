@@ -25,7 +25,7 @@ type User = {
   email: string
 }
 
-type OrderStatus = 'paid' | 'pending' | 'refunded'
+type OrderStatus = 'paid' | 'pending' | 'med'
 
 type Sale = {
   id: string
@@ -60,7 +60,7 @@ type SalesResponse = {
   orders: Sale[]
 }
 
-type StatusFilter = 'all' | 'paid' | 'pending' | 'refunded'
+type StatusFilter = 'all' | 'paid' | 'pending' | 'med'
 type PeriodFilter = 'today' | 'yesterday' | 'last7' | 'last30'
 
 export default function VendasPage() {
@@ -367,7 +367,7 @@ export default function VendasPage() {
 
                   {/* STATUS */}
                   <div className="inline-flex overflow-hidden rounded-full border border-[#262626] bg-[#080808]">
-                    {(['all', 'paid', 'pending', 'refunded'] as StatusFilter[]).map(
+                    {(['all', 'paid', 'pending', 'med'] as StatusFilter[]).map(
                       (val) => {
                         const label =
                           val === 'all'
@@ -819,7 +819,7 @@ function OrderStatusPill({ status }: { status: OrderStatus }) {
       className: 'border-amber-500/40 bg-amber-500/10 text-amber-300',
       Icon: Clock,
     },
-    refunded: {
+    med: {
       label: 'Estornado',
       className: 'border-red-500/40 bg-red-500/10 text-red-300',
       Icon: XCircle,

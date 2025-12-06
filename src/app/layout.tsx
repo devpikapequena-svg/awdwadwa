@@ -21,21 +21,35 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   )
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+// app/layout.tsx
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <title>Eqp Dashboard</title>
         <meta name="description" content="Dashboard" />
         <meta name="robots" content="index, follow" />
+<script
+  dangerouslySetInnerHTML={{
+    __html: `
+      document.addEventListener('gesturestart', function (e) {
+        e.preventDefault();
+      });
+    `,
+  }}
+/>
+
+        {/* 🔒 TRAVAR ZOOM NO MOBILE / PWA */}
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+        />
 
         {/* PWA / manifest */}
         <link rel="manifest" href="/manifest.webmanifest" />
         <meta name="theme-color" content="#050505" />
 
-        {/* iOS support (parecer app também no iPhone) */}
+        {/* iOS */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta
           name="apple-mobile-web-app-status-bar-style"
@@ -45,7 +59,12 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
 
-      <body className={cn('overflow-y-scroll font-sans', inter.variable)}>
+      <body
+        className={cn(
+          'overflow-y-scroll font-sans bg-[#050505] text-white',
+          inter.variable,
+        )}
+      >
         <CartProvider>
           <Suspense fallback={null}>
             <LayoutContent>{children}</LayoutContent>

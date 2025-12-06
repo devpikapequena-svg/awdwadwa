@@ -2,11 +2,10 @@
   "name": "Eqp Dashboard",
   "short_name": "Eqp",
   "start_url": "/mobile",
-  "scope": "/",
   "display": "standalone",
-  "orientation": "portrait",
   "background_color": "#050505",
   "theme_color": "#050505",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "/icons/icon-192.png",
