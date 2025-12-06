@@ -11,6 +11,7 @@ import {
   Wallet2,
   ReceiptText,
   BarChart3,
+  CreditCard,   // 👈 ADICIONADO
   Menu,
   X,
 } from 'lucide-react'
@@ -116,6 +117,15 @@ export default function Sidebar({ user }: { user: any }) {
               active={pathname.startsWith('/vendas')}
               onClick={() => setMobileOpen(false)}
             />
+
+            {/* 👇 NOVO ITEM: CARTÕES */}
+            <SidebarItem
+              href="/cartoes"
+              icon={CreditCard}
+              label="Cartões"
+              active={pathname.startsWith('/cartoes')}
+              onClick={() => setMobileOpen(false)}
+            />
           </div>
 
           <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
@@ -124,6 +134,7 @@ export default function Sidebar({ user }: { user: any }) {
             <p className="px-1 text-[11px] uppercase tracking-[0.16em] text-white/35">
               financeiro
             </p>
+
             <SidebarItem
               href="/ads"
               icon={BarChart3}
