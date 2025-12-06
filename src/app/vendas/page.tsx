@@ -40,8 +40,10 @@ type Sale = {
   source?: string | null
   campaign?: string | null
   createdAt: string
-  customerName?: string | null   // 👈 ADICIONA AQUI
+  customerName?: string | null
+  gateway?: 'buckpay' | 'blackcat' | string   // 👈 AQUI
 }
+
 
 
 type SalesSummary = {
@@ -591,38 +593,63 @@ export default function VendasPage() {
   key={o.id}
   className="border-t border-[#262626] hover:bg-white/[0.02] transition-colors"
 >
-  {/* COLUNA – CLIENTE / PARCEIRO / BUCKPAY */}
-  <td className="px-4 py-3 align-top">
-    <div className="flex flex-col gap-1">
-      {/* Nome do cliente */}
-      <span className="text-[11px] font-medium text-white/90">
-        {o.customerName || 'Cliente sem nome'}
-      </span>
+ {/* COLUNA – CLIENTE / PARCEIRO / GATEWAY */}
+<td className="px-4 py-3 align-top">
+  <div className="flex flex-col gap-1">
+    {/* Nome do cliente */}
+    <span className="text-[11px] font-medium text-white/90">
+      {o.customerName || 'Cliente sem nome'}
+    </span>
 
-      {/* Site + parceiro */}
-      <div className="flex flex-wrap items-center gap-2 text-[10px]">
-        {o.siteName && (
-          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[9px] uppercase tracking-wide text-white/65">
-            {o.siteName}
-          </span>
-        )}
-
-        <span className="text-white/50">
-          Parceiro:{' '}
-          <span className="font-medium text-white/75">
-            {o.partnerName || '—'}
-          </span>
-        </span>
-      </div>
-
-      {/* Buckpay ID */}
-      {o.buckpayOrderId && (
-        <span className="text-[9px] text-white/35">
-          BuckPay ID: {o.buckpayOrderId}
+    {/* Site + parceiro + gateway */}
+    <div className="flex flex-wrap items-center gap-2 text-[10px]">
+      {o.siteName && (
+        <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[9px] uppercase tracking-wide text-white/65">
+          {o.siteName}
         </span>
       )}
+
+      <span className="text-white/50">
+        Parceiro:{' '}
+        <span className="font-medium text-white/75">
+          {o.partnerName || '—'}
+        </span>
+      </span>
+
+{/* Badge do gateway */}
+{o.gateway && (
+  <span
+    className={`
+      rounded-full px-2 py-0.5 text-[9px] uppercase tracking-wide
+      border
+      ${
+        o.gateway === 'blackcat'
+          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' // VERDE
+          : o.gateway === 'buckpay'
+          ? 'border-purple-500/40 bg-purple-500/10 text-purple-300'   // ROXO
+          : 'border-white/15 bg-white/5 text-white/70'
+      }
+    `}
+  >
+    {o.gateway === 'blackcat'
+      ? 'Blackcat'
+      : o.gateway === 'buckpay'
+      ? 'Buckpay'
+      : o.gateway}
+  </span>
+)}
+
     </div>
-  </td>
+
+    {/* ID da transação (aqui você pode depois separar por gateway se quiser) */}
+    {o.buckpayOrderId && (
+      <span className="text-[9px] text-white/35">
+        Transação: {o.buckpayOrderId}
+      </span>
+    )}
+  </div>
+</td>
+
 {/* COLUNA – VALOR */}
 <td className="px-4 py-3 align-middle">
   <div className="text-[10px] flex flex-col justify-center h-full">
