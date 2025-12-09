@@ -1,209 +1,170 @@
 'use client'
 
-import { useState } from 'react'
-import Link from 'next/link'
+import { FormEvent, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Chrome, Github, Eye, EyeOff } from 'lucide-react'
+import Link from 'next/link'
+import HeaderAfiliados from '@/components/HeaderAfiliados'
 
 export default function LoginPage() {
-  const [showPassword, setShowPassword] = useState(false)
+  const router = useRouter()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const router = useRouter()
-
-  async function handleLogin(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
-    setLoading(true)
+
+    if (!email || !password) {
+      setError('Preencha e-mail e senha.')
+      return
+    }
 
     try {
+      setLoading(true)
+
       const res = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ email, password }),
       })
 
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || 'Erro ao fazer login.')
+        setError(data?.error || 'Não foi possível fazer login.')
         return
       }
 
-      // cookie httpOnly já está setado na API
-      // aqui você só redireciona pro painel
-      router.push('/dashboard') // troca pro caminho do teu painel
+      // login OK → cookie já foi setado pela API
+      router.push('/dashboard') // redireciona para o dashboard/inicial
     } catch (err) {
-      setError('Erro inesperado. Tente novamente.')
+      console.error(err)
+      setError('Erro ao comunicar com o servidor.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <main className="min-h-screen w-full bg-[#05070d] text-white flex">
-      {/* LADO ESQUERDO - HERO */}
-      <div className="hidden md:flex flex-col justify-center items-center w-1/2 relative overflow-hidden">
-        {/* glow geral */}
-        <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_center,_rgba(255,255,255,0.12),_transparent_70%)]" />
-        <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_bottom,_rgba(0,180,120,0.25),_transparent_60%)]" />
-
-        {/* ESTRELAS DE FUNDO */}
-        <div className="pointer-events-none absolute inset-0 z-0 opacity-70">
-          <div className="absolute top-16 left-24 h-1 w-1 rounded-full bg-white/80" />
-          <div className="absolute top-24 left-1/2 h-[2px] w-[2px] rounded-full bg-white/70" />
-          <div className="absolute top-10 right-32 h-[2px] w-[2px] rounded-full bg-white/80" />
-          <div className="absolute top-32 right-20 h-[1.5px] w-[1.5px] rounded-full bg-white/60" />
-          <div className="absolute top-40 left-10 h-[1.5px] w-[1.5px] rounded-full bg-white/60" />
-          <div className="absolute top-48 left-40 h-1 w-1 rounded-full bg-white/75" />
-          <div className="absolute top-14 left-[60%] h-[1.5px] w-[1.5px] rounded-full bg-white/65" />
-          <div className="absolute top-28 left-[70%] h-[1.5px] w-[1.5px] rounded-full bg-white/55" />
-        </div>
-
-        <h1 className="text-4xl font-semibold mb-4 z-10">
-         Acesse sua central de <span className="text-emerald-400">operações</span>
-        </h1>
-
-        <p className="text-white/60 text-center max-w-xs text-sm z-10">
-       Gerencie filas, automações e disparos com precisão total.
-        </p>
-
-        {/* GLOBO TECNOLÓGICO 3D */}
-        <div className="relative mt-16 w-[33rem] aspect-square z-10">
-          {/* brilho atrás */}
-          <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,_rgba(16,185,129,0.18),_transparent_70%)] blur-2xl" />
-
-          {/* GLOBO */}
-          <svg
-            viewBox="0 0 600 600"
-            className="w-full h-full opacity-90"
-            fill="none"
-            stroke="#4ef2d8"
-            strokeWidth="1.2"
-          >
-            {Array.from({ length: 16 }).map((_, i) => (
-              <ellipse
-                key={i}
-                cx="300"
-                cy="300"
-                rx={260 - i * 10}
-                ry="260"
-                className="origin-center animate-[rotateGlobe_12s_linear_infinite]"
-                style={{ transform: `rotate(${i * 12}deg)` }}
-                strokeOpacity="0.35"
-              />
-            ))}
-          </svg>
-
-          {/* Sombra embaixo */}
-          <div className="absolute bottom-[-5rem] left-1/2 -translate-x-1/2 h-44 w-[160%] bg-black/90 blur-3xl rounded-full" />
-        </div>
-
-        <style jsx global>{`
-          @keyframes rotateGlobe {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}</style>
+    <div className="relative min-h-screen bg-[#070707] text-white overflow-hidden">
+      {/* HEADER FIXO IGUAL DASHBOARD */}
+      <div className="relative z-20">
+        <HeaderAfiliados />
       </div>
 
-      {/* LADO DIREITO - LOGIN CENTRALIZADO */}
-      <div className="flex flex-col justify-center w-full md:w-1/2 px-6 md:px-10 bg-[#05070d]">
-        <div className="w-full max-w-md mx-auto">
-          {/* mini logo + título */}
-          <div className="mb-6 text-center flex flex-col items-center">
-            <div className="h-12 w-12 flex items-center justify-center rounded-2xl bg-white/5">
-              <span className="text-sm font-bold tracking-[0.3em] uppercase text-white/70">
-                A
-              </span>
-            </div>
+      {/* GLOW DE FUNDO */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-0">
+        <div
+          className="h-[280px]
+          bg-[radial-gradient(circle_at_top,_rgba(158,158,158,0.25),_rgba(158,158,158,0.10)_5%,_transparent_90%)]
+          blur-[108px]"
+        />
+      </div>
 
-            <h2 className="text-3xl font-semibold mt-4">Bem-vindo de volta</h2>
-
-            <p className="mt-4 text-sm text-white/50">
-              Faça login ou{' '}
-              <Link href="/register" className="text-emerald-400 hover:text-emerald-300">
-                crie sua conta
-              </Link>.
-            </p>
-          </div>
-
-          {/* botões sociais (mock) */}
-          <div className="space-y-3">
-            <button className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-white/5 px-4 py-3 text-sm text-white hover:bg-white/10 transition">
-              <Chrome className="h-4 w-4" />
-              Continuar com Google
-            </button>
-
-            <button className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-white/5 px-4 py-3 text-sm text-white hover:bg-white/10 transition">
-              <Github className="h-4 w-4" />
-              Continuar com GitHub
-            </button>
-          </div>
-
-          {/* separador */}
-          <div className="my-8 flex items-center gap-4 text-xs text-white/35">
-            <div className="h-px flex-1 bg-white/10" />
-            <span>/</span>
-            <div className="h-px flex-1 bg-white/10" />
-          </div>
-
-          {/* form login */}
-          <form className="space-y-4" onSubmit={handleLogin}>
-            <div className="rounded-2xl bg-white/5 border border-white/15 overflow-hidden">
-              {/* EMAIL */}
-              <div className="px-4 h-14 flex items-center">
-                <input
-                  type="email"
-                  placeholder="Email"
-                  className="w-full bg-transparent text-sm text-white placeholder:text-white/70 outline-none border-none"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                />
+      {/* CONTEÚDO */}
+      <main className="relative z-10 mx-auto flex min-h-screen max-w-6xl items-center justify-center px-4 pb-16 pt-28 md:px-6 md:pt-36">
+        <div className="w-full max-w-md">
+          {/* CARD */}
+          <div className="overflow-hidden rounded-[26px] border border-white/10 bg-white/[0.02] shadow-[0_34px_120px_rgba(0,0,0,0.9)]">
+            <div className="px-6 py-8 md:px-8 md:py-10">
+              {/* Badge */}
+              <div className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/[0.04] px-4 py-1 text-[11px] uppercase tracking-[0.24em] text-white/55">
+                Acesso ao painel
               </div>
 
-              <div className="h-px bg-white/10" />
+              {/* Título */}
+              <h1 className="mt-5 text-[24px] md:text-[26px] font-semibold leading-tight">
+                Entrar no{' '}
+                <span className="text-white/80">EQP Dashboard</span>
+              </h1>
 
-              {/* PASSWORD */}
-              <div className="px-4 h-14 flex items-center">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Password"
-                  className="flex-1 bg-transparent text-sm text-white placeholder:text-white/70 outline-none border-none"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                />
-
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(v => !v)}
-                  className="ml-2 text-white/60 hover:text-white"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="mt-2 flex w-full items-center justify-center bg-white py-3 text-sm font-semibold text-black hover:bg-neutral-200 transition rounded-[14px] disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Entrando...' : 'Entrar'}
-            </button>
-
-            {error && (
-              <p className="mt-2 text-sm text-red-400">
-                {error}
+              <p className="mt-3 text-xs text-white/55">
+                Use o e-mail e a senha cadastrados para visualizar vendas, recebíveis,
+                comissões e métricas em tempo real.
               </p>
-            )}
-          </form>
+
+              {/* FORM */}
+              <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+                {/* E-MAIL */}
+                <div>
+                  <label className="text-xs font-medium text-white/70">
+                    E-mail
+                  </label>
+                  <div className="mt-2 rounded-xl border border-white/15 bg-white/[0.03] px-3 py-2.5 focus-within:border-white/40">
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="voce@empresa.com"
+                      className="w-full bg-transparent text-sm text-white placeholder:text-white/30 outline-none"
+                      autoComplete="email"
+                    />
+                  </div>
+                </div>
+
+                {/* SENHA */}
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium text-white/70">
+                      Senha
+                    </label>
+                    <button
+                      type="button"
+                      className="text-[11px] text-white/40 hover:text-white/70 transition"
+                    >
+                      Esqueceu a senha?
+                    </button>
+                  </div>
+                  <div className="mt-2 rounded-xl border border-white/15 bg-white/[0.03] px-3 py-2.5 focus-within:border-white/40">
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-transparent text-sm text-white placeholder:text-white/30 outline-none"
+                      autoComplete="current-password"
+                    />
+                  </div>
+                </div>
+
+                {/* ERRO */}
+                {error && (
+                  <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-3 py-2 text-[11px] text-red-300">
+                    {error}
+                  </div>
+                )}
+
+                {/* BOTÃO */}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="mt-2 inline-flex h-10 w-full items-center justify-center rounded-full bg-white text-[13px] font-medium text-black shadow-[0_18px_45px_rgba(0,0,0,0.75)] transition hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {loading ? 'Entrando...' : 'Entrar no painel'}
+                </button>
+              </form>
+
+              {/* RODAPÉ DO CARD */}
+              <div className="mt-6 border-t border-white/5 pt-4 text-[11px] text-white/40">
+                <p>
+                  Precisa de acesso?{' '}
+                  <Link
+                    href="#"
+                    className="text-white/70 underline-offset-2 hover:underline"
+                  >
+                    Fale com o administrador.
+                  </Link>
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   )
 }

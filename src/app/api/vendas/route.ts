@@ -3,26 +3,38 @@ import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/connectDB'
 import Order from '@/models/Order'
 import PartnerProject from '@/models/PartnerProject'
+import { getCurrentUser } from '@/lib/auth/getCurrentUser'
 
 type Period = 'today' | 'yesterday' | 'last7' | 'last30'
 
 const BRAZIL_OFFSET_MS = 3 * 60 * 60 * 1000 // diferença de Brasília para UTC (UTC-3)
 
 /**
- * Calcula os períodos SEMPRE considerando dia de Brasília
- * (00:00 até 23:59:59 no fuso UTC-3), mesmo que o servidor esteja em UTC.
+ * Mesma lógica do dashboard:
+ * aceita period + referenceDate (YYYY-MM-DD)
+ * e SEMPRE considera dia fechado em BRT (00:00–23:59).
  */
-function getPeriodRange(period?: string): {
+function getPeriodRange(
+  period?: string,
+  referenceDateStr?: string,
+): {
   start: Date
   end: Date
   label: string
 } {
   const nowUtc = new Date()
 
-  // "Shift" para o horário de Brasília (fingindo que UTC é -3h)
-  const nowBrtFake = new Date(nowUtc.getTime() - BRAZIL_OFFSET_MS)
+  // base no horário de Brasília “fake”
+  let nowBrtFake = new Date(nowUtc.getTime() - BRAZIL_OFFSET_MS)
 
-  // Início e fim do "hoje" nesse horário fake (meia-noite até 23:59:59.999)
+  // se veio referenceDate=YYYY-MM-DD, força o “hoje” pra esse dia
+  if (referenceDateStr) {
+    const [y, m, d] = referenceDateStr.split('-').map(Number)
+    if (!Number.isNaN(y) && !Number.isNaN(m) && !Number.isNaN(d)) {
+      nowBrtFake = new Date(y, m - 1, d, 12, 0, 0, 0)
+    }
+  }
+
   const startOfTodayBrtFake = new Date(
     nowBrtFake.getFullYear(),
     nowBrtFake.getMonth(),
@@ -43,7 +55,6 @@ function getPeriodRange(period?: string): {
     999,
   )
 
-  // Converte esses limites de volta para UTC (que é o que está salvo no Mongo)
   const startOfTodayUtc = new Date(
     startOfTodayBrtFake.getTime() + BRAZIL_OFFSET_MS,
   )
@@ -79,7 +90,7 @@ function getPeriodRange(period?: string): {
 
     return {
       start,
-      end: nowUtc,
+      end: endOfTodayUtc,
       label: 'Últimos 7 dias',
     }
   }
@@ -92,16 +103,16 @@ function getPeriodRange(period?: string): {
 
     return {
       start,
-      end: nowUtc,
+      end: endOfTodayUtc,
       label: 'Últimos 30 dias',
     }
   }
 
-  // HOJE -> de meia-noite até AGORA (BRT)
+  // padrão: 1 dia (hoje ou referenceDate) de 00:00 até 23:59 BRT
   return {
     start: startOfTodayUtc,
-    end: nowUtc,
-    label: 'Hoje',
+    end: endOfTodayUtc,
+    label: referenceDateStr ? referenceDateStr : 'Hoje',
   }
 }
 
@@ -136,36 +147,86 @@ export async function GET(req: NextRequest) {
   try {
     await connectDB()
 
-    const { searchParams } = new URL(req.url)
-    const periodParam = (searchParams.get('period') || 'today') as Period
-    const siteParam = searchParams.get('site') // ex: ?site=white
-
-    const { start, end, label } = getPeriodRange(periodParam)
-
-    const filter: any = {
-      createdAt: { $gte: start, $lte: end },
+    // 🔐 pega usuário logado (mesma lógica do summary)
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const ownerId =
+      (user as any).id ?? (user as any)._id?.toString()
+
+    if (!ownerId) {
+      return NextResponse.json(
+        { error: 'Usuário inválido.' },
+        { status: 401 },
+      )
+    }
+
+    const { searchParams } = new URL(req.url)
+    const periodParam = (searchParams.get('period') || 'today') as Period
+    const referenceDateParam =
+      searchParams.get('referenceDate') || undefined
+    const siteParam = searchParams.get('site') // ex: ?site=white
+
+    const { start, end, label } = getPeriodRange(
+      periodParam,
+      referenceDateParam,
+    )
+
+    // 🔹 pega SOMENTE os sites VINCULADOS a esse usuário
+    const myConfigs = await PartnerProject.find({
+      ownerId: ownerId,
+    }).lean()
+
+    if (myConfigs.length === 0) {
+      // sem site vinculado = sem vendas
+      return NextResponse.json({
+        summary: {
+          periodLabel: label,
+          totalOrders: 0,
+          totalGross: 0,
+          totalNet: 0,
+          myCommissionTotal: 0,
+          averageTicket: null,
+        },
+        orders: [],
+      })
+    }
+
+    const allowedSlugs = myConfigs.map((c: any) => c.siteSlug as string)
+
+    // 🔹 filtro base (período + slugs que pertencem ao dono)
+    const filter: any = {
+      createdAt: { $gte: start, $lte: end },
+      siteSlug: { $in: allowedSlugs },
+    }
+
+    // se veio ?site=slug, restringe mais ainda
     if (siteParam && siteParam !== 'all') {
+      // se o slug pedido não é do dono → resposta vazia
+      if (!allowedSlugs.includes(siteParam)) {
+        return NextResponse.json({
+          summary: {
+            periodLabel: label,
+            totalOrders: 0,
+            totalGross: 0,
+            totalNet: 0,
+            myCommissionTotal: 0,
+            averageTicket: null,
+          },
+          orders: [],
+        })
+      }
+
       filter.siteSlug = siteParam
     }
 
     const docs = await Order.find(filter).sort({ createdAt: -1 }).lean()
 
-    const siteSlugs = Array.from(
-      new Set(
-        (docs as any[])
-          .map((d) => d.siteSlug as string | undefined)
-          .filter(Boolean),
-      ),
-    )
-
-    const configs = await PartnerProject.find({
-      siteSlug: { $in: siteSlugs },
-    }).lean()
-
+    // configs só dos sites do dono
     const cfgBySlug = new Map(
-      configs.map((c: any) => [c.siteSlug as string, c]),
+      myConfigs.map((c: any) => [c.siteSlug as string, c]),
     )
 
     const orders: Sale[] = (docs as any[]).map((doc) => {
@@ -209,10 +270,13 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    const totalOrders = orders.length
-    const totalGross = orders.reduce((acc, o) => acc + o.amount, 0)
-    const totalNet = orders.reduce((acc, o) => acc + o.netAmount, 0)
-    const myCommissionTotal = orders.reduce(
+    // ⬇️ SÓ SOMA EM CIMA DOS PAGOS
+    const paidOrders = orders.filter((o) => o.status === 'paid')
+
+    const totalOrders = paidOrders.length
+    const totalGross = paidOrders.reduce((acc, o) => acc + o.amount, 0)
+    const totalNet = paidOrders.reduce((acc, o) => acc + o.netAmount, 0)
+    const myCommissionTotal = paidOrders.reduce(
       (acc, o) => acc + o.myCommission,
       0,
     )
@@ -228,6 +292,7 @@ export async function GET(req: NextRequest) {
         myCommissionTotal,
         averageTicket,
       },
+      // tabela continua vendo TODOS os pedidos desse dono, inclusive pendente/med
       orders,
     }
 

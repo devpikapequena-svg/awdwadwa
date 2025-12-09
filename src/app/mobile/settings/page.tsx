@@ -2,32 +2,51 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
-import {
-  ArrowLeft,
-  Bell,
-  Settings,
-  Smartphone,
-  Home,
-  Wallet2,
-} from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Bell, Settings, LayoutDashboard, BarChart2 } from 'lucide-react'
+import Link from 'next/link'
 
 /* ============================ */
-/*  LOADER PREMIUM EM TELA CHEIA */
+/*  LOADER FULLSCREEN BOLINHA   */
 /* ============================ */
 
 function FullscreenLoader() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#050505]">
-      <div className="relative h-12 w-12">
-        {/* anel externo */}
-        <div className="absolute inset-0 rounded-full border-2 border-white/10" />
-        {/* spinner */}
-        <div className="absolute inset-0 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
-        {/* glow suave */}
-        <div className="absolute inset-0 rounded-full bg-emerald-400/20 blur-xl animate-pulse" />
+    <div className="flex min-h-screen w-full items-center justify-center bg-black">
+      <div className="relative h-10 w-10">
+        {/* círculo externo suave */}
+        <div className="absolute inset-0 rounded-full border border-white/10" />
+        {/* círculo traçado girando */}
+        <div className="absolute inset-0 rounded-full border-2 border-white/60 border-t-transparent border-dashed animate-spin" />
       </div>
     </div>
+  )
+}
+
+/* ============================ */
+/*  LOADER LOGIN EXPIRADO       */
+/* ============================ */
+
+function ExpiredRedirectSpinner() {
+  const router = useRouter()
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      router.replace('/mobile/login')
+    }, 3500)
+
+    return () => clearTimeout(timer)
+  }, [router])
+
+  return (
+    <main className="flex min-h-screen w-full items-center justify-center bg-black">
+      <div className="relative h-10 w-10">
+        {/* círculo externo suave */}
+        <div className="absolute inset-0 rounded-full border border-white/10" />
+        {/* círculo traçado girando */}
+        <div className="absolute inset-0 rounded-full border-2 border-white/60 border-t-transparent border-dashed animate-spin" />
+      </div>
+    </main>
   )
 }
 
@@ -35,7 +54,7 @@ function FullscreenLoader() {
 /*          TYPES               */
 /* ============================ */
 
-type User = {
+type UserType = {
   id: string
   name: string
   email: string
@@ -73,9 +92,8 @@ function urlBase64ToUint8Array(base64String: string) {
 
 export default function MobileSettingsPage() {
   const router = useRouter()
-  const pathname = usePathname()
 
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<UserType | null>(null)
   const [loadingUser, setLoadingUser] = useState(true)
   const [isMobile, setIsMobile] = useState<boolean | null>(null)
 
@@ -84,7 +102,7 @@ export default function MobileSettingsPage() {
     useState<NotificationStatus[]>(['paid'])
   const [loadingPrefs, setLoadingPrefs] = useState(true)
   const [savingPrefs, setSavingPrefs] = useState(false)
-const [testingPush, setTestingPush] = useState(false)
+  const [testingPush, setTestingPush] = useState(false)
 
   // detectar se é mobile
   useEffect(() => {
@@ -243,7 +261,6 @@ const [testingPush, setTestingPush] = useState(false)
 
     let next: NotificationStatus[]
     if (selectedStatuses.includes(status)) {
-      // se só tiver 1 selecionado, não deixa ficar vazio
       if (selectedStatuses.length === 1) return
       next = selectedStatuses.filter((s) => s !== status)
     } else {
@@ -258,7 +275,7 @@ const [testingPush, setTestingPush] = useState(false)
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          subscription: null, // só atualiza statuses
+          subscription: null,
           statuses: next,
           enabled: true,
         }),
@@ -268,7 +285,7 @@ const [testingPush, setTestingPush] = useState(false)
     }
   }
 
-    const handleTestPush = async () => {
+  const handleTestPush = async () => {
     try {
       setTestingPush(true)
       const res = await fetch('/api/notifications/test', {
@@ -294,11 +311,12 @@ const [testingPush, setTestingPush] = useState(false)
     }
   }
 
+  /* ========= GUARDS ========= */
 
   if (isMobile === false) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#050505] text-white">
-        <div className="w-full max-w-sm rounded-2xl border border-[#191919] bg-[#080808] px-6 py-7 text-center">
+      <main className="flex min-h-screen items-center justify-center bg-black text-white">
+        <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-black px-6 py-7 text-center">
           <p className="text-sm font-semibold">Versão mobile</p>
           <p className="mt-2 text-xs text-white/55">
             Essa é a interface pensada para celular. Acesse pelo smartphone ou
@@ -309,253 +327,168 @@ const [testingPush, setTestingPush] = useState(false)
     )
   }
 
-  // 🔥 Loader premium no início
+  // carregando user / checando se é mobile
   if (loadingUser || isMobile === null) {
     return <FullscreenLoader />
   }
 
+  // sessão expirada → bolinha + redirect pra /mobile/login
   if (!user) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#050505] text-white">
-        <div className="w-full max-w-sm rounded-2xl border border-[#191919] bg-[#080808] px-6 py-7 text-center">
-          <p className="text-sm font-semibold">Sessão expirada</p>
-          <p className="mt-2 text-xs text-white/55">
-            Faça login novamente para acessar seu painel.
-          </p>
-          <button
-            onClick={() => router.push('/login')}
-            className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-white/90 px-4 py-2 text-xs font-semibold text-black transition hover:bg-white"
-          >
-            Ir para login
-          </button>
-        </div>
-      </main>
-    )
+    return <ExpiredRedirectSpinner />
+  }
+
+  // carregando prefs na primeira vez
+  if (loadingPrefs) {
+    return <FullscreenLoader />
   }
 
   return (
-    <main className="flex min-h-screen flex-col bg-[#050505] text-white">
-      {/* HEADER MOBILE - mesmo estilo do de comissões, mas pra Config */}
-      <header className="relative z-10 flex items-center justify-between border-b border-[#171717] bg-gradient-to-r from-[#050505] via-[#070707] to-[#050505] px-4 pb-3 pt-[16px]">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-500/40">
-            <Settings className="h-4 w-4 text-emerald-300" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[11px] text-white/50">
-              {user.name?.split(' ')[0] || 'Parceiro(a)'}
-            </span>
-            <span className="text-sm font-semibold leading-tight">
-              Configurações
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => router.push('/mobile')}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/40"
-          >
-            <ArrowLeft className="h-3.5 w-3.5 text-white/70" />
-          </button>
-        </div>
-      </header>
-
-      {/* CONTEÚDO SCROLLÁVEL */}
-      <section className="flex-1 overflow-y-auto pb-24">
-        <div className="mx-auto flex max-w-md flex-col gap-4 px-4 pt-4 pb-6">
-          {/* CARD STATUS DO APP */}
-          <div className="relative overflow-hidden rounded-3xl border border-[#191919] bg-[#070707] p-4 shadow-[0_18px_45px_rgba(0,0,0,0.55)]">
-            <div className="absolute -right-10 -top-10 h-20 w-20 rounded-full bg-white/5 blur-xl" />
-            <div className="absolute -left-8 bottom-0 h-16 w-16 rounded-full bg-emerald-500/10 blur-xl" />
-
-            <div className="relative flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-emerald-500/10 ring-1 ring-emerald-500/40">
-                <Smartphone className="h-4 w-4 text-emerald-300" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[11px] text-white/55">
-                  App instalado no iPhone
-                </span>
-                <span className="text-xs text-white/80">
-                  Se você adicionou na tela de início, pode receber push real
-                  das vendas.
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* CARD NOTIFICAÇÕES */}
-          <div className="rounded-3xl border border-[#151515] bg-[#070707] p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5">
-                  <Bell className="h-3.5 w-3.5 text-emerald-300" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-xs font-semibold text-white/85">
-                    Notificações push
-                  </span>
-                  <span className="text-[11px] text-white/50">
-                    Receba alertas quando entrar venda.
-                  </span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                disabled={loadingPrefs || savingPrefs}
-                onClick={() =>
-                  handleToggleNotification(!notificationsEnabled)
-                }
-                className={`relative inline-flex h-6 w-11 items-center rounded-full border px-0.5 transition ${
-                  notificationsEnabled
-                    ? 'border-emerald-400 bg-emerald-500/20'
-                    : 'border-white/15 bg-black/60'
-                } ${savingPrefs ? 'opacity-60' : ''}`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
-                    notificationsEnabled ? 'translate-x-5' : 'translate-x-0'
-                  }`}
-                />
-              </button>
+    <>
+      <div className="flex min-h-screen flex-col bg-black text-white">
+        {/* HEADER IGUAL CLIMA DO DASHBOARD */}
+        <section className="relative z-10 w-full px-6 pt-8 pb-4">
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <h1 className="mt-1 text-[22px] font-semibold">Configurações</h1>
+              <p className="mt-1 text-[11px] text-white/45 max-w-xs">
+                Ajuste como você quer ser avisado das vendas direto no seu
+                iPhone.
+              </p>
             </div>
 
-            {loadingPrefs ? (
-              <div className="mt-3 h-9 animate-pulse rounded-2xl bg-white/5" />
-            ) : (
-              <>
-                {!notificationsEnabled && (
-                  <p className="mt-3 text-[11px] text-white/45">
-                    Ative acima para o app pedir permissão de notificação no
-                    seu iPhone e registrar seu dispositivo.
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/5">
+              <Settings className="h-4 w-4 text-white/70" />
+            </div>
+          </div>
+        </section>
+
+        {/* CONTEÚDO PRINCIPAL */}
+        <section className="relative z-10 flex-1 px-6 pb-24">
+          <div className="space-y-3">
+            {/* CARD NOTIFICAÇÕES */}
+            <div className="rounded-2xl bg-white/[0.03] px-3.5 py-3.5 ">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5">
+                    <Bell className="h-4 w-4 text-white/70" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-semibold text-white">
+                      Notificações push
+                    </span>
+                    <span className="text-[11px] text-white/50">
+                      Receba alertas quando entrar venda.
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={savingPrefs}
+                  onClick={() => handleToggleNotification(!notificationsEnabled)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full border px-0.5 transition ${
+                    notificationsEnabled
+                      ? 'border-white bg-white'
+                      : 'border-[#3a3a3a] bg-[#1f1f1f]'
+                  } ${savingPrefs ? 'opacity-60' : ''}`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-black shadow transition ${
+                      notificationsEnabled ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {!notificationsEnabled && (
+                <p className="mt-3 text-[11px] text-white/45">
+                  Ative o botão acima para o app pedir permissão e registrar seu
+                  dispositivo para receber as notificações de venda.
+                </p>
+              )}
+
+              {notificationsEnabled && (
+                <div className="mt-3 space-y-3">
+                  <div className="space-y-2">
+                    <p className="text-[11px] text-white/55">
+                      Enviar push quando a venda estiver com os status:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {(Object.keys(STATUS_LABELS) as NotificationStatus[]).map(
+                        (st) => {
+                          const active = selectedStatuses.includes(st)
+                          return (
+                            <button
+                              key={st}
+                              type="button"
+                              onClick={() => toggleStatus(st)}
+                              className={`rounded-full px-3 py-1 text-[11px] transition border ${
+                                active
+                                  ? 'border-white bg-white text-black'
+                                  : 'border-white/15 bg-black text-white/60'
+                              }`}
+                            >
+                              {STATUS_LABELS[st]}
+                            </button>
+                          )
+                        },
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleTestPush}
+                    disabled={testingPush}
+                    className="inline-flex items-center justify-center rounded-full border border-white bg-transparent px-4 py-1.5 text-[11px] font-semibold text-white transition hover:bg-white hover:text-black disabled:opacity-60"
+                  >
+                    {testingPush
+                      ? 'Enviando...'
+                      : 'Enviar notificação de teste'}
+                  </button>
+
+                  <p className="text-[10px] text-white/40">
+                    Dica: deixe marcado só o que importa pra você (ex: apenas
+                    vendas pagas). O backend usa essas preferências na hora de
+                    disparar o push.
                   </p>
-                )}
-
-{notificationsEnabled && (
-  <div className="mt-3 space-y-3">
-    <div className="space-y-2">
-      <p className="text-[11px] text-white/55">
-        Enviar push quando a venda estiver com os status:
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {(Object.keys(STATUS_LABELS) as NotificationStatus[]).map((st) => {
-          const active = selectedStatuses.includes(st)
-          return (
-            <button
-              key={st}
-              type="button"
-              onClick={() => toggleStatus(st)}
-              className={`rounded-full px-3 py-1 text-[11px] transition border ${
-                active
-                  ? 'border-emerald-400 bg-emerald-500/15 text-emerald-200'
-                  : 'border-white/10 bg-black/40 text-white/55'
-              }`}
-            >
-              {STATUS_LABELS[st]}
-            </button>
-          )
-        })}
-      </div>
-    </div>
-
-    <button
-      type="button"
-      onClick={handleTestPush}
-      disabled={testingPush}
-      className="inline-flex items-center justify-center rounded-full border border-emerald-400/70 bg-emerald-500/10 px-4 py-1.5 text-[11px] font-semibold text-emerald-200 transition hover:bg-emerald-500/20 disabled:opacity-60"
-    >
-      {testingPush ? 'Enviando...' : 'Enviar notificação de teste'}
-    </button>
-
-    <p className="text-[10px] text-white/40">
-      Dica: marque só o que importa pra você (por exemplo, apenas vendas
-      pagas). O backend usa essas preferências quando for disparar os push.
-    </p>
-  </div>
-)}
-
-              </>
-            )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
-      {/* NAVBAR INFERIOR */}
-      <nav
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-white/5 
-                bg-black/10 backdrop-blur-2xl 
-                shadow-[0_-12px_40px_rgba(0,0,0,0.85)] 
-                h-[80px] pb-[env(safe-area-inset-bottom)]"
-      >
-        <div className="mx-auto flex max-w-md items-center justify-between px-6 pt-2 translate-y-[4px]">
-          {/* PAINEL */}
-          <button
-            onClick={() => router.push('/mobile')}
-            className="flex flex-1 items-center justify-center"
-          >
-            <div
-              className={`flex items-center transition-all ${
-                pathname === '/mobile'
-                  ? 'bg-white h-8 px-3 gap-2 text-black rounded-xl shadow-lg'
-                  : 'bg-transparent h-10 px-0 gap-0 text-white/70 rounded-none'
-              }`}
+      {/* ====== BOTTOM NAV FIXO ====== */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#050505]/95 backdrop-blur-md">
+        <div className="mx-auto max-w-md">
+          <div className="flex items-center justify-around px-4 py-4 text-[11px]">
+            <Link
+              href="/mobile"
+              className="flex flex-col items-center gap-1 text-white/60"
             >
-              <Home className={pathname === '/mobile' ? 'h-4 w-4' : 'h-6 w-6'} />
-              {pathname === '/mobile' && (
-                <span className="text-xs font-semibold">Painel</span>
-              )}
-            </div>
-          </button>
+              <LayoutDashboard className="h-4 w-4" />
+              <span>Dashboard</span>
+            </Link>
 
-          {/* VENDAS */}
-          <button
-            onClick={() => router.push('/mobile/comissoes')}
-            className="flex flex-1 items-center justify-center"
-          >
-            <div
-              className={`flex items-center transition-all ${
-                pathname === '/mobile/comissoes'
-                  ? 'bg-white h-8 px-3 gap-2 text-black rounded-xl shadow-lg'
-                  : 'bg-transparent h-10 px-0 gap-0 text-white/70 rounded-none'
-              }`}
+            <Link
+              href="/mobile/comissoes"
+              className="flex flex-col items-center gap-1 text-white/60"
             >
-              <Wallet2
-                className={
-                  pathname === '/mobile/comissoes' ? 'h-4 w-4' : 'h-6 w-6'
-                }
-              />
-              {pathname === '/mobile/comissoes' && (
-                <span className="text-xs font-semibold">Vendas</span>
-              )}
-            </div>
-          </button>
+              <BarChart2 className="h-4 w-4" />
+              <span>Comissões</span>
+            </Link>
 
-          {/* CONFIG */}
-          <button
-            onClick={() => router.push('/mobile/settings')}
-            className="flex flex-1 items-center justify-center"
-          >
-            <div
-              className={`flex items-center transition-all ${
-                pathname === '/mobile/settings'
-                  ? 'bg-white h-8 px-3 gap-2 text-black rounded-xl shadow-lg'
-                  : 'bg-transparent h-10 px-0 gap-0 text-white/70 rounded-none'
-              }`}
+            <Link
+              href="/mobile/settings"
+              className="flex flex-col items-center gap-1 text-white"
             >
-              <Settings
-                className={
-                  pathname === '/mobile/settings' ? 'h-4 w-4' : 'h-6 w-6'
-                }
-              />
-              {pathname === '/mobile/settings' && (
-                <span className="text-xs font-semibold">Config</span>
-              )}
-            </div>
-          </button>
+              <Settings className="h-4 w-4" />
+              <span>Configurações</span>
+            </Link>
+          </div>
         </div>
       </nav>
-    </main>
+    </>
   )
 }

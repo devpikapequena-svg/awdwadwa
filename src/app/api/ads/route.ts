@@ -27,18 +27,41 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const userId =
+      (user as any).id ?? (user as any)._id?.toString()
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Usuário inválido.' },
+        { status: 401 },
+      )
+    }
+
     const { searchParams } = new URL(req.url)
     const dateParam = searchParams.get('date') // YYYY-MM-DD
     const refDate = dateParam || getTodayRefDate()
 
-    const spends = await AdSpend.find({
-      userId: String(user.id),
+    // opcional: filtrar por site se vier na query (?site=slug ou ?siteSlug=slug)
+    const siteParam =
+      searchParams.get('site') || searchParams.get('siteSlug')
+
+    const filter: any = {
+      userId: String(userId),
       refDate,
-    })
+    }
+
+    if (siteParam) {
+      filter.siteSlug = siteParam
+    }
+
+    const spends = await AdSpend.find(filter)
       .sort({ createdAt: -1 })
       .lean()
 
-    const totalSpent = spends.reduce((acc: number, ad: any) => acc + (ad.amount || 0), 0)
+    const totalSpent = spends.reduce(
+      (acc: number, ad: any) => acc + (ad.amount || 0),
+      0,
+    )
 
     const response = {
       refDate,
@@ -51,6 +74,7 @@ export async function GET(req: NextRequest) {
         amount: Number((s.amount || 0).toFixed(2)),
         notes: s.notes || null,
         createdAt: s.createdAt,
+        type: s.type || 'ad', // 🔥 tipo salvo (ad/med)
       })),
     }
 
@@ -73,12 +97,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const userId =
+      (user as any).id ?? (user as any)._id?.toString()
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Usuário inválido.' },
+        { status: 401 },
+      )
+    }
+
     const body = await req.json()
-    const { refDate, siteSlug, amount, notes } = body as {
+    const { refDate, siteSlug, amount, notes, type } = body as {
       refDate?: string
       siteSlug?: string
       amount?: number
       notes?: string | null
+      type?: 'ad' | 'med'
     }
 
     if (!refDate || !siteSlug || typeof amount !== 'number' || amount <= 0) {
@@ -88,22 +123,37 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Confere se site existe
-    const project = await PartnerProject.findOne({ siteSlug }).lean()
+    if (!type || (type !== 'ad' && type !== 'med')) {
+      return NextResponse.json(
+        { error: 'Tipo inválido. Use "ad" ou "med".' },
+        { status: 400 },
+      )
+    }
+
+    // 🔐 Confere se o site existe E pertence ao dono logado
+    const project = await PartnerProject.findOne({
+      siteSlug,
+      ownerId: userId,
+    }).lean()
+
     if (!project) {
       return NextResponse.json(
-        { error: 'Site não encontrado para o slug informado.' },
+        {
+          error:
+            'Site não encontrado para o slug informado ou não está vinculado a esta conta.',
+        },
         { status: 404 },
       )
     }
 
     const ad = await AdSpend.create({
-      userId: String(user.id),
+      userId: String(userId),
       siteSlug,
       siteName: project.siteName,
       refDate,
       amount,
       notes: notes || null,
+      type, // 🔥 salva tipo
     })
 
     return NextResponse.json(
@@ -114,6 +164,7 @@ export async function POST(req: NextRequest) {
         refDate: ad.refDate,
         amount: ad.amount,
         notes: ad.notes,
+        type: ad.type,
       },
       { status: 201 },
     )

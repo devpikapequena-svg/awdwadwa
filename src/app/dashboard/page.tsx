@@ -1,43 +1,28 @@
 // src/app/dashboard/page.tsx
 'use client'
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import {
-  Wallet2,
-  LineChart as LineChartIcon,
-  ShoppingBag,
   ArrowUpRight,
+  ArrowDownRight,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import {
   ResponsiveContainer,
-  LineChart as RechartsLineChart,
-  Line,
+  AreaChart as RechartsAreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
 } from 'recharts'
 
-type User = {
-  id: string
-  name: string
-  email: string
-}
-
-type PartnerSummary = {
-  id: string
-  name: string
-  siteName: string
-  totalOrders: number
-  totalGross: number
-  totalNet: number
-  myCommission: number
-}
-
 type DailyPoint = {
-  date: string // ISO - pode ser dia ou hora
+  date: string
   totalGross: number
   totalNet: number
   myCommission: number
@@ -51,71 +36,139 @@ type DashboardSummary = {
   totalNet: number
   myCommissionTotal: number
   averageTicket: number | null
-  partners: PartnerSummary[]
   dailySeries: DailyPoint[]
 }
 
-type PeriodFilter = 'today' | 'yesterday' | 'last7' | 'last30'
-
-// ---- helpers de série ----
-
-/**
- * Série por HORA (0..23).
- * Agora NÃO é acumulado: cada ponto é o valor daquela hora.
- */
-function buildHourlySeries(series: DailyPoint[]) {
-  const byHour = new Map<number, number>() // hour -> totalGross da hora
-
-  series.forEach((p) => {
-    const d = new Date(p.date)
-    const h = d.getHours()
-    byHour.set(h, (byHour.get(h) ?? 0) + (p.totalGross || 0))
-  })
-
-  const data: { hour: number; label: string; totalGross: number }[] = []
-
-  for (let h = 0; h < 24; h++) {
-    const valueThisHour = byHour.get(h) ?? 0
-
-    data.push({
-      hour: h,
-      label: `${h.toString().padStart(2, '0')}h`,
-      totalGross: valueThisHour,
-    })
-  }
-
-  return data
+type UserMe = {
+  id: string
+  name: string
+  email: string
+  plan?: string
 }
 
-/**
- * Série por DIA (quando período for 7 / 30 dias).
- * Mantém acumulado para ver crescimento no período.
- */
-function buildDailySeries(series: DailyPoint[]) {
-  const sorted = [...series].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-  )
+/* =============== LOADER FULLSCREEN =============== */
 
-  let running = 0
-  return sorted.map((p) => {
-    running += p.totalGross || 0
-    return {
-      label: new Date(p.date).toISOString().slice(0, 10), // AAAA-MM-DD
-      totalGross: running,
-    }
-  })
+function FullscreenLoader() {
+  return (
+    <main className="flex min-h-screen w-full items-center justify-center bg-black">
+      <div className="relative h-10 w-10">
+        <div className="absolute inset-0 rounded-full border border-white/10" />
+        <div className="absolute inset-0 rounded-full border-2 border-white/60 border-t-transparent border-dashed animate-spin" />
+      </div>
+    </main>
+  )
+}
+
+/* ================================================= */
+
+const currency = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+})
+
+function formatCurrency(value: number | null | undefined) {
+  if (value == null) return 'R$ 0,00'
+  return currency.format(value)
+}
+
+function formatLabel(dateStr: string, isHourly: boolean) {
+  const d = new Date(dateStr)
+  if (isHourly) {
+    const h = d.getHours().toString().padStart(2, '0')
+    return `${h}h`
+  }
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
+
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload || !payload.length) return null
+
+  const item = payload[0]
+  return (
+    <div className="rounded-lg border border-[#151515] bg-[#050505] px-3 py-2 text-xs text-white/80">
+      <p className="mb-1 text-[11px] text-white/60">{label}</p>
+      <p className="font-medium">
+        Faturamento líquido: {formatCurrency(item.value)}
+      </p>
+    </div>
+  )
+}
+
+// helpers de data
+function toYMD(d: Date) {
+  return d.toISOString().slice(0, 10)
+}
+
+function addDays(base: Date, days: number) {
+  const dd = new Date(base)
+  dd.setDate(dd.getDate() + days)
+  return dd
+}
+
+// célula do calendário
+type CalendarCell = {
+  date: Date
+  inCurrentMonth: boolean
 }
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<User | null>(null)
+  const router = useRouter()
+
+  const [user, setUser] = useState<UserMe | null>(null)
   const [loadingUser, setLoadingUser] = useState(true)
 
-  const [summary, setSummary] = useState<DashboardSummary | null>(null)
-  const [loadingSummary, setLoadingSummary] = useState(true)
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('today')
+  // data selecionada (sempre um único dia)
+  const [selectedDate, setSelectedDate] = useState<string>(() =>
+    toYMD(new Date()),
+  )
 
+  // mês do calendário aberto
+  const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
+    const n = new Date()
+    return new Date(n.getFullYear(), n.getMonth(), 1)
+  })
+
+  const [calendarOpen, setCalendarOpen] = useState(false)
+  const [calendarClosing, setCalendarClosing] = useState(false)
+
+  const calendarRef = useRef<HTMLDivElement | null>(null)
+
+  const [summary, setSummary] = useState<DashboardSummary | null>(null)
+  const [yesterdaySummary, setYesterdaySummary] =
+    useState<DashboardSummary | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const isHourly = true
+
+  // hoje "zerado" (pra comparação de futuro)
+  const todayDate = useMemo(() => {
+    const n = new Date()
+    return new Date(n.getFullYear(), n.getMonth(), n.getDate(), 0, 0, 0, 0)
+  }, [])
+
+  const selectedDateLabel = useMemo(() => {
+    const d = new Date(selectedDate + 'T12:00:00')
+    return d.toLocaleDateString('pt-BR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+  }, [selectedDate])
+
+  const isSelectedToday = useMemo(() => {
+    const today = toYMD(new Date())
+    return today === selectedDate
+  }, [selectedDate])
+
+  // quando mudar selectedDate, garante que o calendário está no mesmo mês
   useEffect(() => {
-    const fetchUser = async () => {
+    const d = new Date(selectedDate + 'T12:00:00')
+    setCalendarMonth(new Date(d.getFullYear(), d.getMonth(), 1))
+  }, [selectedDate])
+
+  // ===== AUTH GUARD / USER =====
+  useEffect(() => {
+    async function loadUser() {
       try {
         const res = await fetch('/api/auth/me', {
           method: 'GET',
@@ -123,398 +176,594 @@ export default function DashboardPage() {
         })
 
         if (!res.ok) {
-          setUser(null)
-        } else {
-          const data = await res.json()
-          setUser(data)
-        }
-      } catch {
-        setUser(null)
-      } finally {
-        setLoadingUser(false)
-      }
-    }
-
-    fetchUser()
-  }, [])
-
-  useEffect(() => {
-    if (!user) return
-
-    const fetchSummary = async () => {
-      try {
-        setLoadingSummary(true)
-        const res = await fetch(
-          `/api/dashboard/summary?period=${periodFilter}`,
-          {
-            method: 'GET',
-            credentials: 'include',
-          },
-        )
-
-        if (!res.ok) {
-          setSummary(null)
+          router.replace('/login')
           return
         }
 
         const data = await res.json()
-        setSummary(data)
-      } catch {
-        setSummary(null)
+        setUser(data)
+      } catch (e) {
+        console.error('Erro ao carregar usuário', e)
+        router.replace('/login')
       } finally {
-        setLoadingSummary(false)
+        setLoadingUser(false)
+      }
+    }
+    loadUser()
+  }, [router])
+
+  // clique fora do calendário -> anima e fecha
+  useEffect(() => {
+    if (!calendarOpen) return
+
+    function handleClickOutside(ev: MouseEvent) {
+      if (!calendarRef.current) return
+      if (!calendarRef.current.contains(ev.target as Node)) {
+        setCalendarClosing(true)
+        setTimeout(() => setCalendarOpen(false), 160)
       }
     }
 
-    fetchSummary()
-  }, [user, periodFilter])
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [calendarOpen])
 
-  if (loadingUser) {
-    return (
-      <main className="flex min-h-screen bg-[#050505] text-white">
-        <aside className="w-64 border-r border-[#161616] bg-[#080808]" />
-        <section className="flex-1 px-10 py-10">
-          <div className="h-6 w-40 rounded-full bg-[#141414]" />
-          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-28 rounded-2xl border border-[#161616] bg-[#080808]"
-              />
-            ))}
-          </div>
-        </section>
-      </main>
-    )
-  }
+  // carregar dashboard da data selecionada + dia anterior
+  useEffect(() => {
+    async function load() {
+      try {
+        setLoading(true)
 
-  if (!user) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#050505] text-white">
-        <div className="w-full max-w-sm rounded-2xl border border-[#191919] bg-[#080808] px-6 py-7 text-center">
-          <p className="text-sm font-semibold">Sessão expirada</p>
-          <p className="mt-2 text-xs text-white/55">
-            Faça login novamente para acessar seu painel financeiro.
-          </p>
-          <Link
-            href="/login"
-            className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-white/90 px-4 py-2 text-xs font-semibold text-black transition hover:bg-white"
-          >
-            Ir para login
-          </Link>
-        </div>
-      </main>
-    )
-  }
+        const baseDate = new Date(selectedDate + 'T12:00:00')
+        const prevDate = addDays(baseDate, -1)
 
-  const periodLabel = summary?.periodLabel || 'Hoje'
+        const [resCurrent, resPrev] = await Promise.all([
+          fetch(
+            `/api/dashboard/summary?period=today&referenceDate=${selectedDate}`,
+          ),
+          fetch(
+            `/api/dashboard/summary?period=today&referenceDate=${toYMD(
+              prevDate,
+            )}`,
+          ),
+        ])
 
-  const formatCurrency = (value: number | null | undefined) => {
-    if (value == null) return 'R$ 0,00'
-    return value.toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
+        if (resCurrent.ok) {
+          const data = await resCurrent.json()
+          setSummary(data)
+        } else {
+          setSummary(null)
+        }
+
+        if (resPrev.ok) {
+          const dataPrev = await resPrev.json()
+          setYesterdaySummary(dataPrev)
+        } else {
+          setYesterdaySummary(null)
+        }
+      } catch (e) {
+        console.error('Erro ao carregar dashboard', e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [selectedDate])
+
+  const chartData = useMemo(() => {
+    if (!summary) return []
+
+    // sempre 00h–23h
+    const byHour = new Map<number, DailyPoint>()
+
+    summary.dailySeries.forEach((p) => {
+      const d = new Date(p.date)
+      const h = d.getHours()
+      const existing = byHour.get(h)
+      if (existing) {
+        byHour.set(h, {
+          ...existing,
+          totalGross: existing.totalGross + p.totalGross,
+          totalNet: existing.totalNet + p.totalNet,
+          myCommission: existing.myCommission + p.myCommission,
+          orders: existing.orders + p.orders,
+        })
+      } else {
+        byHour.set(h, p)
+      }
     })
+
+    const result = []
+    for (let h = 0; h < 24; h++) {
+      const p = byHour.get(h)
+      result.push({
+        date: p?.date ?? '',
+        totalGross: p?.totalGross ?? 0,
+        totalNet: p?.totalNet ?? 0,
+        myCommission: p?.myCommission ?? 0,
+        orders: p?.orders ?? 0,
+        label: `${String(h).padStart(2, '0')}h`,
+      })
+    }
+    return result
+  }, [summary])
+
+  // comparação intradiária só quando data selecionada é hoje
+  const intradayDelta = useMemo(() => {
+    if (!summary || !yesterdaySummary || !isSelectedToday) return null
+
+    const now = new Date()
+    const currentHour = now.getHours()
+
+    const sumUpToHour = (series: DailyPoint[]) =>
+      series.reduce((acc, p) => {
+        const d = new Date(p.date)
+        if (d.getHours() <= currentHour) {
+          return acc + p.totalNet
+        }
+        return acc
+      }, 0)
+
+    const todayTotal = sumUpToHour(summary.dailySeries)
+    const yesterdayTotal = sumUpToHour(yesterdaySummary.dailySeries)
+
+    const diff = todayTotal - yesterdayTotal
+    const perc = yesterdayTotal > 0 ? (diff / yesterdayTotal) * 100 : null
+
+    return {
+      todayTotal,
+      yesterdayTotal,
+      diff,
+      perc,
+      hourLabel: `${currentHour.toString().padStart(2, '0')}h`,
+    }
+  }, [summary, yesterdaySummary, isSelectedToday])
+
+  // ====== CALENDÁRIO (com dias de outros meses) ======
+  const weeks = useMemo(() => {
+    const year = calendarMonth.getFullYear()
+    const month = calendarMonth.getMonth()
+
+    const firstDayCurrent = new Date(year, month, 1)
+    const firstWeekday = firstDayCurrent.getDay() // 0-dom ... 6-sab
+    const daysInCurrent = new Date(year, month + 1, 0).getDate()
+    const daysInPrev = new Date(year, month, 0).getDate()
+
+    const matrix: CalendarCell[][] = []
+
+    // primeira semana (pode ter dias do mês anterior)
+    let week: CalendarCell[] = []
+    let currentDay = 1
+    let nextMonthDay = 1
+
+    for (let i = 0; i < 7; i++) {
+      if (i < firstWeekday) {
+        const dayFromPrev = daysInPrev - (firstWeekday - 1 - i)
+        week.push({
+          date: new Date(year, month - 1, dayFromPrev),
+          inCurrentMonth: false,
+        })
+      } else {
+        week.push({
+          date: new Date(year, month, currentDay++),
+          inCurrentMonth: true,
+        })
+      }
+    }
+    matrix.push(week)
+
+    // próximas semanas
+    while (currentDay <= daysInCurrent) {
+      week = []
+      for (let i = 0; i < 7; i++) {
+        if (currentDay <= daysInCurrent) {
+          week.push({
+            date: new Date(year, month, currentDay++),
+            inCurrentMonth: true,
+          })
+        } else {
+          week.push({
+            date: new Date(year, month + 1, nextMonthDay++),
+            inCurrentMonth: false,
+          })
+        }
+      }
+      matrix.push(week)
+    }
+
+    return matrix
+  }, [calendarMonth])
+
+  const handleSelectDay = (date: Date, isFuture: boolean) => {
+    if (isFuture) return
+    setSelectedDate(toYMD(date))
+    setCalendarClosing(true)
+    setTimeout(() => setCalendarOpen(false), 160)
   }
 
-  const rawSeries: DailyPoint[] = summary?.dailySeries ?? []
+  // mês máximo permitido (mês atual)
+  const maxMonth = useMemo(() => {
+    return new Date(todayDate.getFullYear(), todayDate.getMonth(), 1)
+  }, [todayDate])
 
-  const isHourly = periodFilter === 'today' || periodFilter === 'yesterday'
+  const canGoNextMonth = useMemo(() => {
+    const cm = new Date(
+      calendarMonth.getFullYear(),
+      calendarMonth.getMonth(),
+      1,
+    )
+    return cm < maxMonth
+  }, [calendarMonth, maxMonth])
 
-  const chartData = isHourly
-    ? buildHourlySeries(rawSeries)
-    : buildDailySeries(rawSeries)
-
-  const periodFilterLabel =
-    periodFilter === 'today'
-      ? 'Hoje'
-      : periodFilter === 'yesterday'
-      ? 'Ontem'
-      : periodFilter === 'last7'
-      ? 'Últimos 7 dias'
-      : 'Últimos 30 dias'
-
-  const totalGross = summary?.totalGross ?? 0
+  // ===== GUARD: enquanto carrega auth, só a bolinha =====
+  if (loadingUser) {
+    return <FullscreenLoader />
+  }
 
   return (
-    <main className="flex min-h-screen bg-[#050505] text-white">
-      <Sidebar user={user} />
+    <>
+      <div className="flex min-h-screen bg-[#070707] text-white">
+        {/* Sidebar sempre aparece, mesmo antes do user real carregar */}
+        <Sidebar
+          user={
+            user || {
+              id: '',
+              name: '',
+              email: '',
+            }
+          }
+        />
 
-      <section className="flex-1 overflow-y-auto px-8 py-8 flex justify-center">
-        <div className="w-full max-w-7xl flex flex-col gap-8">
-          {/* HEADER PREMIUM */}
-          <header className="relative overflow-hidden rounded-3xl border border-[#202020] bg-gradient-to-br from-[#0b0b0b] via-[#080808] to-[#050505] px-6 py-6 shadow-[0_0_25px_rgba(0,0,0,0.4)]">
-            <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/60 to-transparent" />
-            <div className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl" />
+      <main className="px-6 py-8 md:px-10 md:py-10 md:ml-64">
+          {/* HEADER TOP */}
+          <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="mt-2 text-[24px] md:text-[26px] font-semibold">
+                Dashboard financeiro
+              </h1>
+            </div>
 
-            <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight text-white">
-                  Visão geral financeira
-                </h1>
-                <p className="mt-1 max-w-md text-[12px] text-white/60">
-                  Acompanhe o faturamento, o lucro líquido e a evolução da
-                  receita dos seus sites em tempo real.
-                </p>
+            {/* FILTRO DE DATA */}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!calendarOpen) {
+                      setCalendarOpen(true)
+                      setCalendarClosing(false)
+                    } else {
+                      setCalendarClosing(true)
+                      setTimeout(() => setCalendarOpen(false), 160)
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 rounded-lg border border-[#151515] bg-[#050505] px-3 py-2 text-xs text-white/80 hover:bg-[#111111] transition-colors"
+                >
+                  <CalendarDays className="h-4 w-4 text-white/70" />
+                  <span className="whitespace-nowrap">
+                    {selectedDateLabel}
+                  </span>
+                </button>
 
-                {summary && (
-                  <p className="mt-2 text-[11px] text-white/45">
-                    No período selecionado, foram registrados{' '}
-                    <span className="font-semibold text-white/80">
-                      {summary.totalOrders} pedidos
-                    </span>{' '}
-                    com ticket médio de{' '}
-                    <span className="font-semibold text-white/80">
-                      {summary.averageTicket
-                        ? formatCurrency(summary.averageTicket)
-                        : '—'}
-                    </span>
-                    .
-                  </p>
+                {calendarOpen && (
+                  <div
+                    ref={calendarRef}
+                    className={`absolute right-0 mt-2 w-72 rounded-xl border border-[#151515] bg-[#050505] shadow-xl z-30 origin-top-right ${
+                      calendarClosing ? 'animate-scaleOut' : 'animate-scaleIn'
+                    }`}
+                  >
+                    {/* cabeçalho mês/ano */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCalendarMonth(
+                            new Date(
+                              calendarMonth.getFullYear(),
+                              calendarMonth.getMonth() - 1,
+                              1,
+                            ),
+                          )
+                        }
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-full hover:bg-white/5"
+                      >
+                        <ChevronLeft className="h-4 w-4 text-white/70" />
+                      </button>
+                      <span className="text-xs font-medium text-white/80">
+                        {calendarMonth.toLocaleDateString('pt-BR', {
+                          month: 'long',
+                          year: 'numeric',
+                        })}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={!canGoNextMonth}
+                        onClick={() => {
+                          if (!canGoNextMonth) return
+                          setCalendarMonth(
+                            new Date(
+                              calendarMonth.getFullYear(),
+                              calendarMonth.getMonth() + 1,
+                              1,
+                            ),
+                          )
+                        }}
+                        className={`inline-flex h-7 w-7 items-center justify-center rounded-full ${
+                          canGoNextMonth
+                            ? 'hover:bg-white/5'
+                            : 'opacity-30 cursor-not-allowed'
+                        }`}
+                      >
+                        <ChevronRight className="h-4 w-4 text-white/70" />
+                      </button>
+                    </div>
+
+                    {/* dias da semana */}
+                    <div className="grid grid-cols-7 gap-1 px-3 pt-3 text-[10px] text-white/40">
+                      {['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'].map(
+                        (d) => (
+                          <span
+                            key={d}
+                            className="flex items-center justify-center"
+                          >
+                            {d}
+                          </span>
+                        ),
+                      )}
+                    </div>
+
+                    {/* dias */}
+                    <div className="grid grid-cols-7 gap-1 px-3 pb-3 pt-2 text-xs">
+                      {weeks.map((week, wi) =>
+                        week.map((cell, di) => {
+                          const dateObj = cell.date
+                          const current = toYMD(dateObj)
+                          const isSelected = current === selectedDate
+                          const isFuture = dateObj > todayDate
+                          const inCurrentMonth = cell.inCurrentMonth
+
+                          let classes = ''
+
+                          if (isFuture) {
+                            // futuro: apagado e sem hover
+                            classes =
+                              'flex h-8 w-8 items-center justify-center rounded-md text-white/20 opacity-40 cursor-not-allowed'
+                          } else if (isSelected) {
+                            // dia selecionado (cinza escuro)
+                            classes =
+                              'flex h-8 w-8 items-center justify-center rounded-md bg-[#2b2b2b] text-white'
+                          } else if (!inCurrentMonth) {
+                            // dias do mês anterior/próximo (mais cinza)
+                            classes =
+                              'flex h-8 w-8 items-center justify-center rounded-md text-white/35 hover:bg-white/5 transition-colors'
+                          } else {
+                            // mês atual normal
+                            classes =
+                              'flex h-8 w-8 items-center justify-center rounded-md text-white/80 hover:bg-white/5 transition-colors'
+                          }
+
+                          return (
+                            <button
+                              key={`${wi}-${di}`}
+                              type="button"
+                              onClick={() =>
+                                handleSelectDay(dateObj, isFuture)
+                              }
+                              className={classes}
+                            >
+                              {dateObj.getDate()}
+                            </button>
+                          )
+                        }),
+                      )}
+                    </div>
+                  </div>
                 )}
-              </div>
-
-              <div className="flex flex-col items-start gap-3 text-xs md:items-end">
-                <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-black/20 px-4 py-2 backdrop-blur-sm">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 shadow-inner">
-                    <Wallet2 className="h-3.5 w-3.5 text-white/70" />
-                  </div>
-                  <div className="flex flex-col leading-tight">
-                    <span className="text-[10px] uppercase tracking-wider text-white/50">
-                      Período selecionado
-                    </span>
-                    <span className="text-[11px] text-white/80">
-                      {periodLabel}
-                    </span>
-                  </div>
-                </div>
-
-                {/* seletor de período */}
-                <div className="inline-flex overflow-hidden rounded-full border border-[#262626] bg-[#080808] text-[11px]">
-                  {(['today', 'yesterday', 'last7', 'last30'] as PeriodFilter[]).map(
-                    (val) => {
-                      const label =
-                        val === 'today'
-                          ? 'Hoje'
-                          : val === 'yesterday'
-                          ? 'Ontem'
-                          : val === 'last7'
-                          ? 'Últimos 7'
-                          : 'Últimos 30'
-                      const active = periodFilter === val
-                      return (
-                        <button
-                          key={val}
-                          type="button"
-                          onClick={() => setPeriodFilter(val)}
-                          className={`px-3 py-1.5 transition ${
-                            active
-                              ? 'bg-white text-black'
-                              : 'text-white/55 hover:bg-white/5'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      )
-                    },
-                  )}
-                </div>
               </div>
             </div>
           </header>
 
-          {/* KPI CARDS – Focado em faturamento */}
-          <section className="grid grid-cols-1 gap-4 md:grid-cols-4 mt-1">
-            <DashboardStatCard
-              icon={ShoppingBag}
-              label="Faturamento bruto"
-              value={
-                loadingSummary || !summary
-                  ? '—'
-                  : formatCurrency(summary.totalGross)
-              }
-              hint="Tudo que entrou nos sites antes de taxas e rateios."
-            />
-            <DashboardStatCard
-              icon={LineChartIcon}
-              label="Lucro líquido"
-              value={
-                loadingSummary || !summary
-                  ? '—'
-                  : formatCurrency(summary.totalNet)
-              }
-              hint="Receita que realmente ficou para o negócio após taxas e custos."
-            />
-            <DashboardStatCard
-              icon={LineChartIcon}
-              label="Taxa de conversão"
-              value={
-                loadingSummary || !summary
-                  ? '—'
-                  : `${((summary.totalOrders / 1000) * 100).toFixed(2)}%`
-              }
-              hint="Percentual estimado de conversão."
-            />
-            <DashboardStatCard
-              icon={ArrowUpRight}
-              label="Pedidos no período"
-              value={
-                loadingSummary || !summary
-                  ? '—'
-                  : `${summary.totalOrders} pedidos`
-              }
-              hint="Quantidade total de pedidos registrados nesse intervalo."
-              accent
-            />
+          {/* KPIs */}
+          <section className="grid gap-4 md:grid-cols-4 mb-8">
+            <div className="border border-[#151515] rounded-xl bg-[#050505] px-4 py-4">
+              <p className="text-xs font-medium text-white/60">
+                Faturamento bruto
+              </p>
+              <p className="mt-3 text-xl font-semibold">
+                {formatCurrency(summary?.totalGross)}
+              </p>
+              <p className="mt-3 text-[11px] text-white/45">
+                Valor total das vendas aprovadas sem descontar taxas
+              </p>
+            </div>
+
+            <div className="border border-[#151515] rounded-xl bg-[#050505] px-4 py-4">
+              <p className="text-xs font-medium text-white/60">
+                Faturamento líquido
+              </p>
+              <p className="mt-3 text-xl font-semibold">
+                {formatCurrency(summary?.totalNet)}
+              </p>
+              <p className="mt-3 text-[11px] text-white/45">
+                Após taxas de gateway, considerando apenas pedidos
+                aprovados.
+              </p>
+            </div>
+
+            <div className="border border-[#151515] rounded-xl bg-[#050505] px-4 py-4">
+              <p className="text-xs font-medium text-white/60">
+                Ticket médio
+              </p>
+              <p className="mt-3 text-xl font-semibold">
+                {formatCurrency(summary?.averageTicket ?? 0)}
+              </p>
+              <p className="mt-3 text-[11px] text-white/45">
+                Valor médio por pedido aprovado no período selecionado.
+              </p>
+            </div>
+
+            <div className="border border-[#151515] rounded-xl bg-[#050505] px-4 py-4">
+              <p className="text-xs font-medium text-white/60">
+                Pedidos pagos
+              </p>
+              <p className="mt-3 text-xl font-semibold">
+                {summary?.totalOrders ?? 0}
+              </p>
+              <p className="mt-3 text-[11px] text-white/45">
+                Quantidade total de pedidos aprovados no dia selecionado.
+              </p>
+            </div>
           </section>
 
-          {/* BLOCO INFERIOR – APENAS GRÁFICO */}
-          <div className="relative rounded-3xl border border-[#1b1b1b] bg-gradient-to-br from-[#090909] via-[#050505] to-[#020202] px-5 py-6 md:px-7 md:py-7 shadow-[0_0_20px_rgba(0,0,0,0.4)] overflow-hidden">
-            <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent" />
-            <div className="pointer-events-none absolute -left-24 -top-24 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl" />
+          {/* GRÁFICO PRINCIPAL */}
+          <section className="border border-[#151515] rounded-xl bg-[#050505] px-7 py-6">
+            <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="pl-3 md:pl-3">
+                <p className="text-[28px] md:text-[30px] font-semibold leading-tight">
+                  {formatCurrency(summary?.totalNet)}
+                </p>
+                <p className="mt-0 text-[12px] text-white/65">
+                  total balance
+                </p>
 
-            <section className="relative">
-              <div className="rounded-2xl border border-[#202020] bg-[#080808] p-5">
-                <div className="mb-4 flex items-center justify-between gap-2">
-                  <div>
-                    <p className="text-[11px] text-white/60">
-                      Receita líquida {isHourly ? 'por hora' : 'acumulada'}
-                    </p>
-                    <p className="text-2xl font-semibold tracking-tight text-white">
-                      {summary ? formatCurrency(summary.totalNet) : 'R$ 0,00'}
-                    </p>
-                  </div>
-                  <span className="text-[10px] text-white/45">
-                    {periodFilterLabel}
-                  </span>
-                </div>
-
-                {loadingSummary ? (
-                  <div className="h-56 rounded-xl border border-[#262626] bg-black/30" />
-                ) : chartData.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-[#262626] bg-black/30 px-4 py-4 text-xs text-white/60">
-                    Ainda não há dados suficientes para desenhar o gráfico nesse
-                    período.
-                  </div>
-                ) : (
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsLineChart
-                        data={chartData}
-                        margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                      >
-                        <CartesianGrid
-                          stroke="#1f2933"
-                          strokeDasharray="3 3"
-                          horizontal={false}
-                        />
-                        <XAxis
-                          dataKey="label"
-                          tickLine={false}
-                          axisLine={false}
-                          tick={{ fontSize: 10, fill: '#9ca3af' }}
-                        />
-                        <YAxis hide />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: '#020617',
-                            borderRadius: 12,
-                            border: '1px solid #27272a',
-                            fontSize: 11,
-                          }}
-                          labelFormatter={(value: string) => value}
-                          formatter={(val: any) => {
-                            return [
-                              (val as number).toLocaleString('pt-BR', {
-                                style: 'currency',
-                                currency: 'BRL',
-                              }),
-                              isHourly ? 'Receita na hora' : 'Receita',
-                            ]
-                          }}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="totalGross"
-                          stroke="#ffffff"
-                          strokeWidth={2}
-                          dot={false}
-                          activeDot={{ r: 4 }}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </RechartsLineChart>
-                    </ResponsiveContainer>
+                {intradayDelta && (
+                  <div className="mt-6 flex items-center gap-2 text-[14px]">
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-[2px] ${
+                        intradayDelta.diff > 0
+                          ? 'text-emerald-400'
+                          : intradayDelta.diff < 0
+                          ? 'text-red-400'
+                          : 'text-white/60'
+                      }`}
+                    >
+                      {intradayDelta.diff > 0 && (
+                        <ArrowUpRight className="h-5 w-5" />
+                      )}
+                      {intradayDelta.diff < 0 && (
+                        <ArrowDownRight className="h-5 w-5" />
+                      )}
+                      {intradayDelta.diff > 0 ? '+' : ''}
+                      {formatCurrency(intradayDelta.diff)}
+                      {intradayDelta.perc !== null && (
+                        <span className="ml-1">
+                          ({intradayDelta.perc > 0 ? '+' : ''}
+                          {intradayDelta.perc.toFixed(1)}%)
+                        </span>
+                      )}
+                    </span>
                   </div>
                 )}
               </div>
-            </section>
-          </div>
-        </div>
-      </section>
-    </main>
-  )
-}
+            </div>
 
-/* COMPONENTES */
+            <div className="mt-8 h-[260px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsAreaChart
+                  data={chartData}
+                  margin={{ top: 10, right: 15, left: 15, bottom: 20 }}
+                >
+                  <defs>
+                    <linearGradient
+                      id="grossGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="0%"
+                        stopColor="#e5e7eb"
+                        stopOpacity={0.4}
+                      />
+                      <stop
+                        offset="100%"
+                        stopColor="#e5e7eb"
+                        stopOpacity={0}
+                      />
+                    </linearGradient>
+                  </defs>
 
-type StatCardProps = {
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  value: string
-  hint?: string
-  accent?: boolean
-}
+                  <CartesianGrid
+                    stroke="#111111"
+                    strokeDasharray="3 3"
+                    vertical={false}
+                  />
 
-function DashboardStatCard({
-  icon: Icon,
-  label,
-  value,
-  hint,
-  accent,
-}: StatCardProps) {
-  return (
-    <div
-      className="
-        relative rounded-2xl border border-[#1f1f1f]
-        bg-gradient-to-br from-[#0b0b0b] via-[#090909] to-[#050505]
-        px-5 py-4 shadow-[0_0_20px_rgba(0,0,0,0.35)]
-        hover:shadow-[0_0_35px_rgba(0,0,0,0.55)]
-        transition-all duration-300 overflow-hidden
-      "
-    >
-      <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-      <div
-        className={`pointer-events-none absolute -right-14 -top-14 h-24 w-24 rounded-full ${
-          accent ? 'bg-emerald-500/10' : 'bg-white/5'
-        } blur-2xl`}
-      />
+                  <XAxis
+                    dataKey="label"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{
+                      fontSize: 11,
+                      fill: '#6b7280',
+                      dy: 20,
+                    }}
+                    minTickGap={8}
+                    interval={0}
+                  />
 
-      <div className="relative flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex flex-col gap-1">
-            <p className="text-[11px] text-white/55">{label}</p>
-            <p
-              className={`text-lg font-semibold tracking-tight ${
-                accent ? 'text-emerald-300' : 'text-white'
-              }`}
-            >
-              {value}
-            </p>
-          </div>
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{
+                      fontSize: 11,
+                      fill: '#6b7280',
+                      dx: -30,
+                    }}
+                    width={70}
+                  />
 
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-black/30 border border-white/5">
-            {/* @ts-ignore tamanho custom */}
-            <Icon className="h-4.5 w-4.5 text-white/70" />
-          </div>
-        </div>
+                  <Tooltip content={<CustomTooltip />} />
 
-        {hint && (
-          <p className="text-[10px] leading-relaxed text-white/40">
-            {hint}
-          </p>
-        )}
+                  <Area
+                    type="monotone"
+                    dataKey="totalNet"
+                    stroke="#e5e7eb"
+                    strokeWidth={2.4}
+                    fill="url(#grossGradient)"
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                </RechartsAreaChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+        </main>
       </div>
-    </div>
+
+      {/* animações do calendário */}
+      <style jsx>{`
+        @keyframes scaleIn {
+          0% {
+            opacity: 0;
+            transform: translateY(-4px) scale(0.96);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0px) scale(1);
+          }
+        }
+
+        @keyframes scaleOut {
+          0% {
+            opacity: 1;
+            transform: translateY(0px) scale(1);
+          }
+          100% {
+            opacity: 0;
+            transform: translateY(-4px) scale(0.96);
+          }
+        }
+
+        .animate-scaleIn {
+          animation: scaleIn 0.16s ease-out forwards;
+        }
+
+        .animate-scaleOut {
+          animation: scaleOut 0.16s ease-in forwards;
+        }
+      `}</style>
+    </>
   )
 }

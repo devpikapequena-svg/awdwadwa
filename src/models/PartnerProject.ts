@@ -8,6 +8,9 @@ export interface IPartnerProject extends Document {
   domain?: string
   buckpayStoreId?: string | null
   utmBase?: string | null
+
+  ownerId: mongoose.Types.ObjectId
+  ownerEmail: string
 }
 
 const PartnerProjectSchema = new Schema<IPartnerProject>(
@@ -18,6 +21,17 @@ const PartnerProjectSchema = new Schema<IPartnerProject>(
     domain: { type: String, default: '' },
     buckpayStoreId: { type: String, default: null },
     utmBase: { type: String, default: null },
+
+    // 🔽 DONO DO SITE
+    ownerId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    ownerEmail: {
+      type: String,
+      required: true,
+    },
   },
   { timestamps: true }
 )

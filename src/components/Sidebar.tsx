@@ -1,14 +1,12 @@
 // components/Sidebar.tsx
 'use client'
 
-import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   ShoppingBag,
   Users,
-  Wallet2,
   ReceiptText,
   BarChart3,
   Menu,
@@ -27,14 +25,14 @@ export default function Sidebar({ user }: { user: any }) {
       String(user.email || '').toLowerCase() === 'bruxin@exec.gg')
 
   const roleLabel = isBruxin ? 'Owner' : 'Member'
-  const avatarUrl = user?.image || '/exec-avatar.png'
+  const avatarUrl = user?.image || '/avatar.jpg'
 
   return (
     <>
       {/* BOTÃO MOBILE */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="md:hidden fixed top-4 left-4 z-40 bg-black/40 backdrop-blur-md p-2 rounded-lg border border-white/10"
+        className="md:hidden fixed top-4 left-4 z-40 bg-[#0b0b0b] border border-[#151515] backdrop-blur-md p-2 rounded-xl"
       >
         <Menu className="h-5 w-5 text-white" />
       </button>
@@ -42,7 +40,7 @@ export default function Sidebar({ user }: { user: any }) {
       {/* OVERLAY MOBILE */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 md:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -50,10 +48,10 @@ export default function Sidebar({ user }: { user: any }) {
       {/* SIDEBAR */}
       <aside
         className={`
-          fixed z-50 md:static
-          h-screen w-64 flex flex-col
+          fixed inset-y-0 left-0 z-50
+          w-64 flex flex-col
           border-r border-[#151515]
-          bg-gradient-to-b from-[#050505] via-[#050505] to-[#02040a]
+          bg-[#070707]
           px-5 py-6
           transition-transform duration-300
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
@@ -62,34 +60,34 @@ export default function Sidebar({ user }: { user: any }) {
         {/* FECHAR MOBILE */}
         <button
           onClick={() => setMobileOpen(false)}
-          className="md:hidden absolute top-3 right-3 p-2 rounded-lg bg-white/10 z-[9999]"
+          className="md:hidden absolute top-3 right-3 p-2 rounded-xl bg-[#111111] border border-[#1f1f1f] z-[9999]"
         >
           <X className="h-5 w-5 text-white" />
         </button>
 
-        {/* USER CARD */}
-        <div className="mb-8 flex items-center gap-3 rounded-2xl border border-white/5 px-4 py-3 backdrop-blur-sm shadow-[0_0_25px_rgba(0,0,0,0.45)]">
-          <div className="relative h-10 w-10 overflow-hidden rounded-xl bg-[#0f172a]">
+        {/* TOPO / LOGO + NOME DO PRODUTO */}
+        <div className="mb-6 flex items-center gap-2">
+          <div className="relative h-8 w-8 overflow-hidden rounded-xl bg-[#111111]">
             <Image
-              src={avatarUrl}
-              alt={user?.name || 'Avatar Exec'}
+              src="/logo.png"
+              alt="Exec EQP"
               fill
               className="object-cover"
             />
           </div>
-
-          <div className="flex flex-col flex-1">
-            <span className="truncate text-sm font-semibold text-white">
-              {user?.name || 'Gestor(a)'}
+          <div className="flex flex-col">
+            <span className="text-[11px] text-white/40">EQP Dashboard</span>
+            <span className="text-sm font-semibold text-white/90">
+              Área do gestor
             </span>
-            <span className="text-[11px] text-white/45">{roleLabel}</span>
           </div>
         </div>
 
-        {/* MENU */}
-        <nav className="flex-1 space-y-8 text-sm overflow-y-auto">
+        {/* NAV LINKS */}
+        <nav className="flex-1 space-y-8 text-sm overflow-y-auto pr-1">
+          {/* BLOCO: NAVEGAÇÃO */}
           <div className="space-y-3">
-            <p className="px-1 text-[11px] uppercase tracking-[0.16em] text-white/35">
+            <p className="px-1 text-[11px] font-medium text-white/45">
               Navegação
             </p>
 
@@ -102,14 +100,6 @@ export default function Sidebar({ user }: { user: any }) {
             />
 
             <SidebarItem
-              href="/projetos"
-              icon={Users}
-              label="Parceiros & sites"
-              active={pathname.startsWith('/projetos')}
-              onClick={() => setMobileOpen(false)}
-            />
-
-            <SidebarItem
               href="/vendas"
               icon={ShoppingBag}
               label="Vendas"
@@ -118,16 +108,31 @@ export default function Sidebar({ user }: { user: any }) {
             />
           </div>
 
-          <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-
+          {/* BLOCO: GESTÃO */}
           <div className="space-y-3">
-            <p className="px-1 text-[11px] uppercase tracking-[0.16em] text-white/35">
-              financeiro
+            <p className="px-1 text-[11px] font-medium text-white/45">
+              Gestão
             </p>
+
+            <SidebarItem
+              href="/projetos"
+              icon={Users}
+              label="Parceiros & sites"
+              active={pathname.startsWith('/projetos')}
+              onClick={() => setMobileOpen(false)}
+            />
+          </div>
+
+          {/* BLOCO: FINANCEIRO */}
+          <div className="space-y-3">
+            <p className="px-1 text-[11px] font-medium text-white/45">
+              Financeiro
+            </p>
+
             <SidebarItem
               href="/ads"
               icon={BarChart3}
-              label="Gastos ADS"
+              label="Gastos"
               active={pathname.startsWith('/ads')}
               onClick={() => setMobileOpen(false)}
             />
@@ -135,20 +140,45 @@ export default function Sidebar({ user }: { user: any }) {
             <SidebarItem
               href="/notas"
               icon={ReceiptText}
-              label="Comissões & repasses"
+              label="Comissões"
               active={pathname.startsWith('/notas')}
               onClick={() => setMobileOpen(false)}
             />
           </div>
         </nav>
 
-        <div className="mt-8 rounded-2xl border border-white/10 px-4 py-4 text-center">
-          <p className="text-[10px] tracking-wide text-white/40">
-            Powered by{' '}
-            <span className="font-semibold text-emerald-400">
-              Exec v2.4.1
+        {/* FOOTER DO SIDEBAR / USER + AMBIENTE */}
+        <div className="mt-6 border-t border-[#151515] pt-4">
+          {/* User mini-card */}
+          <div className="flex items-center gap-3">
+            <div className="relative h-8 w-8 rounded-full overflow-hidden border border-white/10 bg-[#111111]">
+              <Image
+                src={avatarUrl}
+                alt={user?.name || user?.email || 'Usuário'}
+                fill
+                className="object-cover"
+              />
+            </div>
+
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-medium text-white/90 truncate">
+                {user?.name || user?.email || 'Usuário'}
+              </span>
+              <div className="mt-[2px] flex items-center gap-2 text-[11px] text-white/40">
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  <span>{roleLabel}</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between text-[10px] text-white/35">
+            <span>EQP Dashboard</span>
+            <span className="inline-flex items-center rounded-full border border-[#202020] bg-[#101010] px-2 py-[2px] text-[10px] text-white/55">
+              v2.4.1
             </span>
-          </p>
+          </div>
         </div>
       </aside>
     </>

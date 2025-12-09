@@ -13,7 +13,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const projects = await PartnerProject.find({})
+    const ownerId =
+      (user as any).id ?? (user as any)._id?.toString()
+
+    if (!ownerId) {
+      return NextResponse.json(
+        { error: 'Usuário inválido.' },
+        { status: 401 },
+      )
+    }
+
+    // 🔹 Só sites vinculados a esse ownerId
+    const projects = await PartnerProject.find({ ownerId })
       .sort({ siteName: 1 })
       .lean()
 

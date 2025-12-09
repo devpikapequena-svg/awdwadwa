@@ -1,4 +1,3 @@
-// src/app/api/dashboard/summary/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/connectDB'
 import Order from '@/models/Order'
@@ -7,23 +6,29 @@ import { getCurrentUser } from '@/lib/auth/getCurrentUser'
 
 type Period = 'today' | 'yesterday' | 'last7' | 'last30'
 
-const BRAZIL_OFFSET_MS = 3 * 60 * 60 * 1000 // diferença de Brasília para UTC (UTC-3)
+const BRAZIL_OFFSET_MS = 3 * 60 * 60 * 1000
 
-/**
- * Calcula os períodos SEMPRE considerando dia de Brasília
- * (00:00 até 23:59:59 no fuso UTC-3), mesmo que o servidor esteja em UTC.
- */
-function getPeriodRange(period?: string): {
+function getPeriodRange(
+  period?: string,
+  referenceDateStr?: string,
+): {
   start: Date
   end: Date
   label: string
 } {
   const nowUtc = new Date()
 
-  // "Shift" para o horário de Brasília (fingindo que UTC é -3h)
-  const nowBrtFake = new Date(nowUtc.getTime() - BRAZIL_OFFSET_MS)
+  // base no horário de Brasília “fake”
+  let nowBrtFake = new Date(nowUtc.getTime() - BRAZIL_OFFSET_MS)
 
-  // Início e fim do "hoje" nesse horário fake (meia-noite até 23:59:59.999)
+  // se veio referenceDate=YYYY-MM-DD, força o “hoje” pra esse dia
+  if (referenceDateStr) {
+    const [y, m, d] = referenceDateStr.split('-').map(Number)
+    if (!Number.isNaN(y) && !Number.isNaN(m) && !Number.isNaN(d)) {
+      nowBrtFake = new Date(y, m - 1, d, 12, 0, 0, 0)
+    }
+  }
+
   const startOfTodayBrtFake = new Date(
     nowBrtFake.getFullYear(),
     nowBrtFake.getMonth(),
@@ -44,7 +49,6 @@ function getPeriodRange(period?: string): {
     999,
   )
 
-  // Converte esses limites de volta para UTC (que é o que está salvo no Mongo)
   const startOfTodayUtc = new Date(
     startOfTodayBrtFake.getTime() + BRAZIL_OFFSET_MS,
   )
@@ -80,7 +84,7 @@ function getPeriodRange(period?: string): {
 
     return {
       start,
-      end: nowUtc,
+      end: endOfTodayUtc,
       label: 'Últimos 7 dias',
     }
   }
@@ -93,16 +97,16 @@ function getPeriodRange(period?: string): {
 
     return {
       start,
-      end: nowUtc,
+      end: endOfTodayUtc,
       label: 'Últimos 30 dias',
     }
   }
 
-  // HOJE -> de meia-noite até AGORA no dia de Brasília
+  // padrão: 1 dia (hoje ou referenceDate) de 00:00 até 23:59 BRT
   return {
     start: startOfTodayUtc,
-    end: nowUtc,
-    label: 'Hoje',
+    end: endOfTodayUtc,
+    label: referenceDateStr ? referenceDateStr : 'Hoje',
   }
 }
 
@@ -125,31 +129,63 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const ownerId =
+      // dependendo de como você devolve no getCurrentUser
+      // tenta primeiro `id`, senão `_id`
+      // ajusta se souber exatamente
+      // ex: const ownerId = user.id;
+      (user as any).id ?? (user as any)._id?.toString()
+
+    if (!ownerId) {
+      return NextResponse.json(
+        { error: 'Usuário inválido.' },
+        { status: 401 },
+      )
+    }
+
     const { searchParams } = new URL(req.url)
     const periodParam = (searchParams.get('period') || 'today') as Period
+    const referenceDateParam =
+      searchParams.get('referenceDate') || undefined
 
-    const { start, end, label } = getPeriodRange(periodParam)
+    const { start, end, label } = getPeriodRange(
+      periodParam,
+      referenceDateParam,
+    )
 
-const filter: any = {
-  createdAt: { $gte: start, $lte: end },
-}
+    // 🔹 pega SOMENTE os sites VINCULADOS a esse usuário
+    const myConfigs = await PartnerProject.find({
+      ownerId: ownerId,
+    }).lean()
+
+    // se o usuário não tem site vinculado, já devolve tudo zerado
+    if (myConfigs.length === 0) {
+      return NextResponse.json({
+        periodLabel: label,
+        totalOrders: 0,
+        totalGross: 0,
+        totalNet: 0,
+        myCommissionTotal: 0,
+        averageTicket: null,
+        partners: [],
+        lastOrders: [],
+        dailySeries: [],
+      })
+    }
+
+    const allowedSlugs = myConfigs.map((c: any) => c.siteSlug as string)
+
+    const filter: any = {
+      createdAt: { $gte: start, $lte: end },
+      // 🔹 só orders dos slugs que pertencem a esse dono
+      siteSlug: { $in: allowedSlugs },
+    }
 
     const docs = await Order.find(filter).sort({ createdAt: -1 }).lean()
 
-    const siteSlugs = Array.from(
-      new Set(
-        (docs as any[])
-          .map((d) => d.siteSlug as string | undefined)
-          .filter(Boolean),
-      ),
-    )
-
-    const configs = await PartnerProject.find({
-      siteSlug: { $in: siteSlugs },
-    }).lean()
-
+    // map de config por slug pra achar nome de site / parceiro
     const cfgBySlug = new Map(
-      configs.map((c: any) => [c.siteSlug as string, c]),
+      myConfigs.map((c: any) => [c.siteSlug as string, c]),
     )
 
     type OrderSummary = {
@@ -197,7 +233,7 @@ const filter: any = {
       }
     })
 
-    // apenas pagos
+    // só pagas pra resumo principal
     const orders = allOrders.filter((o) => o.status === 'paid')
 
     const totalOrders = orders.length
@@ -223,7 +259,8 @@ const filter: any = {
     const partnerMap = new Map<string, PartnerSummaryLocal>()
 
     orders.forEach((o) => {
-      const cfg = configs.find((c: any) => c.siteName === o.siteName)
+      // agora configs vem só dos sites do dono
+      const cfg = myConfigs.find((c: any) => c.siteName === o.siteName)
       const id = cfg ? String(cfg._id) : o.siteName
       const partnerName = cfg?.partnerName || 'Não configurado'
       const siteName = cfg?.siteName || o.siteName
@@ -251,7 +288,6 @@ const filter: any = {
 
     const partners = Array.from(partnerMap.values())
 
-    // ====== Série para gráfico ======
     type Bucket = {
       totalGross: number
       totalNet: number
@@ -268,9 +304,7 @@ const filter: any = {
       const d = new Date(o.createdAt)
 
       let keyDate: Date
-
       if (isHourlyPeriod) {
-        // agrupa por hora
         keyDate = new Date(
           d.getFullYear(),
           d.getMonth(),
@@ -281,7 +315,6 @@ const filter: any = {
           0,
         )
       } else {
-        // agrupa por dia
         keyDate = new Date(
           d.getFullYear(),
           d.getMonth(),

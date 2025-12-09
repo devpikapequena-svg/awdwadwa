@@ -11,32 +11,45 @@ type Period = 'today' | 'yesterday' | 'last7' | 'last30' | 'all'
 
 const BRAZIL_OFFSET_MS = 3 * 60 * 60 * 1000
 
-//
-// 🔥 MESMA LÓGICA DO DASHBOARD SUMMARY → FUNCIONA 100%
-//
-function getPeriodRange(period: Period): { start: Date; end: Date } {
+function getPeriodRange(
+  period: Period,
+  referenceDateStr?: string,
+): { start: Date; end: Date } {
   const nowUtc = new Date()
-  const nowBrtFake = new Date(nowUtc.getTime() - BRAZIL_OFFSET_MS)
+  let nowBrtFake = new Date(nowUtc.getTime() - BRAZIL_OFFSET_MS)
 
-  // 00:00 e 23:59 no horário brasileiro
+  // se veio referenceDate=YYYY-MM-DD, força o “hoje” para esse dia (igual dashboard)
+  if (referenceDateStr) {
+    const [y, m, d] = referenceDateStr.split('-').map(Number)
+    if (!Number.isNaN(y) && !Number.isNaN(m) && !Number.isNaN(d)) {
+      nowBrtFake = new Date(y, m - 1, d, 12, 0, 0, 0)
+    }
+  }
+
   const startBrt = new Date(
     nowBrtFake.getFullYear(),
     nowBrtFake.getMonth(),
     nowBrtFake.getDate(),
-    0, 0, 0, 0
+    0,
+    0,
+    0,
+    0,
   )
 
   const endBrt = new Date(
     nowBrtFake.getFullYear(),
     nowBrtFake.getMonth(),
     nowBrtFake.getDate(),
-    23, 59, 59, 999
+    23,
+    59,
+    59,
+    999,
   )
 
   const ONE_DAY = 24 * 60 * 60 * 1000
 
   const startUtc = new Date(startBrt.getTime() + BRAZIL_OFFSET_MS)
-  const endUtc   = new Date(endBrt.getTime() + BRAZIL_OFFSET_MS)
+  const endUtc = new Date(endBrt.getTime() + BRAZIL_OFFSET_MS)
 
   if (period === 'today') {
     return { start: startUtc, end: endUtc }
@@ -45,7 +58,7 @@ function getPeriodRange(period: Period): { start: Date; end: Date } {
   if (period === 'yesterday') {
     return {
       start: new Date(startUtc.getTime() - ONE_DAY),
-      end:   new Date(endUtc.getTime()   - ONE_DAY),
+      end: new Date(endUtc.getTime() - ONE_DAY),
     }
   }
 
@@ -67,23 +80,35 @@ function getPeriodRange(period: Period): { start: Date; end: Date } {
   return { start: new Date(0), end: endUtc }
 }
 
-//
-// 🔥 LISTA DE DIAS PARA ADS (idêntico ao dashboard)
-//
-function getRefDatesForPeriod(period: Period): string[] {
+function getRefDatesForPeriod(
+  period: Period,
+  referenceDateStr?: string,
+): string[] {
   const nowUtc = new Date()
-  const nowBrtFake = new Date(nowUtc.getTime() - BRAZIL_OFFSET_MS)
+  let nowBrtFake = new Date(nowUtc.getTime() - BRAZIL_OFFSET_MS)
   const ONE_DAY = 24 * 60 * 60 * 1000
+
+  if (referenceDateStr) {
+    const [y, m, d] = referenceDateStr.split('-').map(Number)
+    if (!Number.isNaN(y) && !Number.isNaN(m) && !Number.isNaN(d)) {
+      nowBrtFake = new Date(y, m - 1, d, 12, 0, 0, 0)
+    }
+  }
 
   const base = new Date(
     nowBrtFake.getFullYear(),
     nowBrtFake.getMonth(),
     nowBrtFake.getDate(),
-    0, 0, 0, 0
+    0,
+    0,
+    0,
+    0,
   )
 
   const fmt = (date: Date) =>
-    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+      date.getDate(),
+    ).padStart(2, '0')}`
 
   if (period === 'today') return [fmt(base)]
   if (period === 'yesterday') return [fmt(new Date(base.getTime() - ONE_DAY))]
@@ -96,32 +121,60 @@ function getRefDatesForPeriod(period: Period): string[] {
   return result
 }
 
-//
-// 🔥 ENDPOINT GET — TOTALMENTE REFEITO E CORRIGIDO
-//
 export async function GET(req: NextRequest) {
   try {
     await connectDB()
 
     const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const ownerId =
+      (user as any).id ?? (user as any)._id?.toString()
+
+    if (!ownerId) {
+      return NextResponse.json(
+        { error: 'Usuário inválido.' },
+        { status: 401 },
+      )
+    }
 
     const { searchParams } = new URL(req.url)
     const partnerId = searchParams.get('partnerId')
     const periodParam = (searchParams.get('period') || 'today') as Period
+    const referenceDateParam =
+      searchParams.get('referenceDate') || undefined
 
-    const validPeriods: Period[] = ['today','yesterday','last7','last30','all']
-    const period: Period = validPeriods.includes(periodParam) ? periodParam : 'today'
+    const validPeriods: Period[] = [
+      'today',
+      'yesterday',
+      'last7',
+      'last30',
+      'all',
+    ]
+    const period: Period = validPeriods.includes(periodParam)
+      ? periodParam
+      : 'today'
 
-    const { start, end } = getPeriodRange(period)
+    const { start, end } = getPeriodRange(period, referenceDateParam)
 
-    //
-    // 🔥 PEDIDOS
-    //
-const orderFilter: any = { 
-  status: 'paid',
-  gateway: { $in: ['buckpay', 'blackcat'] },
-}
+    // 🔹 PARCEIROS SOMENTE DO DONO LOGADO
+    const partners = await PartnerProject.find({ ownerId }).lean()
+
+    if (partners.length === 0) {
+      return NextResponse.json({ partners: [] })
+    }
+
+    const partnerIds = partners.map((p: any) => String(p._id))
+    const siteSlugs = partners.map((p: any) => p.siteSlug)
+
+    // 🔹 PEDIDOS (apenas dos slugs desses sites)
+    const orderFilter: any = {
+      status: 'paid',
+      gateway: { $in: ['buckpay', 'blackcat'] },
+      siteSlug: { $in: siteSlugs },
+    }
 
     if (period !== 'all') {
       orderFilter.createdAt = { $gte: start, $lte: end }
@@ -129,42 +182,30 @@ const orderFilter: any = {
 
     const orders = await Order.find(orderFilter).lean<OrderDocument[]>()
 
-    //
-    // 🔥 PARCEIROS
-    //
-    const partners = await PartnerProject.find().lean()
-
-    //
-    // 🔥 PAGAMENTOS
-    //
-    let payments: any[] = []
-
-    if (period === 'all') {
-      payments = await PartnerPayment.find().lean()
-    } else {
-      payments = await PartnerPayment.find({
-        createdAt: { $gte: start, $lte: end },
-      }).lean()
+    // 🔹 PAGAMENTOS (apenas para esses partnerIds)
+    const paymentFilter: any = {
+      partnerId: { $in: partnerIds },
     }
 
-    //
-    // 🔥 ADS
-    //
+    if (period !== 'all') {
+      paymentFilter.createdAt = { $gte: start, $lte: end }
+    }
+
+    const payments = await PartnerPayment.find(paymentFilter).lean()
+
+    // 🔹 ADS (já filtrando userId do dono)
     let adSpends: any[] = []
 
     if (period === 'all') {
-      adSpends = await AdSpend.find({ userId: String(user.id) }).lean()
+      adSpends = await AdSpend.find({ userId: String(ownerId) }).lean()
     } else {
-      const refDates = getRefDatesForPeriod(period)
+      const refDates = getRefDatesForPeriod(period, referenceDateParam)
       adSpends = await AdSpend.find({
-        userId: String(user.id),
+        userId: String(ownerId),
         refDate: { $in: refDates },
       }).lean()
     }
 
-    //
-    // 🔥 MONTAGEM DOS DADOS POR PARCEIRO
-    //
     const partnerRows = partners.map((p: any) => {
       const id = String(p._id)
 
@@ -172,12 +213,12 @@ const orderFilter: any = {
 
       const totalGross = partnerOrders.reduce(
         (acc, o) => acc + (o.totalAmountInCents ?? 0) / 100,
-        0
+        0,
       )
 
       const totalNetBeforeAds = partnerOrders.reduce(
         (acc, o) => acc + (o.netAmountInCents ?? 0) / 100,
-        0
+        0,
       )
 
       const partnerAds = adSpends.filter((ad) => ad.siteSlug === p.siteSlug)
@@ -187,8 +228,13 @@ const orderFilter: any = {
 
       const myCommission = totalNetAfterAds * 0.3
 
-      const partnerPayments = payments.filter((pg) => String(pg.partnerId) === id)
-      const totalPaid = partnerPayments.reduce((a, b) => a + (b.amount ?? 0), 0)
+      const partnerPayments = payments.filter(
+        (pg) => String(pg.partnerId) === id,
+      )
+      const totalPaid = partnerPayments.reduce(
+        (a, b) => a + (b.amount ?? 0),
+        0,
+      )
 
       const balance = myCommission - totalPaid
 
@@ -199,7 +245,11 @@ const orderFilter: any = {
         siteSlug: p.siteSlug,
 
         totalGross: Number(totalGross.toFixed(2)),
-        totalNet: Number(totalNetBeforeAds.toFixed(2)),
+        totalNet: Number(totalNetAfterAds.toFixed(2)),
+
+        totalNetBeforeAds: Number(totalNetBeforeAds.toFixed(2)),
+        adsTotal: Number(totalAds.toFixed(2)),
+
         myCommission: Number(myCommission.toFixed(2)),
         totalPaid: Number(totalPaid.toFixed(2)),
         balance: Number(balance.toFixed(2)),
@@ -225,27 +275,62 @@ const orderFilter: any = {
   }
 }
 
-//
-// 🔥 ENDPOINT POST — SEM ALTERAÇÕES
-//
 export async function POST(req: NextRequest) {
   try {
     await connectDB()
 
     const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    const { partnerId, amount, note } = await req.json()
+    const ownerId =
+      (user as any).id ?? (user as any)._id?.toString()
+
+    if (!ownerId) {
+      return NextResponse.json(
+        { error: 'Usuário inválido.' },
+        { status: 401 },
+      )
+    }
+
+    const { partnerId, amount, note, repDate } = await req.json()
 
     if (!partnerId || !amount) {
       return NextResponse.json({ error: 'Dados incompletos' }, { status: 400 })
+    }
+
+    // 🔐 garante que esse partnerId é de um site seu
+    const partner = await PartnerProject.findOne({
+      _id: partnerId,
+      ownerId,
+    }).lean()
+
+    if (!partner) {
+      return NextResponse.json(
+        {
+          error:
+            'Parceiro não encontrado para este usuário ou não está vinculado à sua conta.',
+        },
+        { status: 403 },
+      )
+    }
+
+    // monta createdAt baseado em repDate (YYYY-MM-DD) respeitando BRT
+    let createdAt = new Date()
+    if (typeof repDate === 'string') {
+      const [y, m, d] = repDate.split('-').map(Number)
+      if (!Number.isNaN(y) && !Number.isNaN(m) && !Number.isNaN(d)) {
+        const brtFake = new Date(y, m - 1, d, 12, 0, 0, 0)
+        createdAt = new Date(brtFake.getTime() + BRAZIL_OFFSET_MS)
+      }
     }
 
     const payment = await PartnerPayment.create({
       partnerId,
       amount,
       note: note || '',
-      createdAt: new Date(),
+      createdAt,
     })
 
     return NextResponse.json(payment)

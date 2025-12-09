@@ -2,42 +2,38 @@
 'use client'
 
 import Link from 'next/link'
-import { ComponentType } from 'react'
+import { LucideIcon } from 'lucide-react'
 
-type SidebarItemProps = {
+interface Props {
   href: string
-  icon: ComponentType<{ className?: string }>
+  icon: LucideIcon
   label: string
   active?: boolean
   onClick?: () => void
 }
 
-export default function SidebarItem({
-  href,
-  icon: Icon,
-  label,
-  active = false,
-  onClick,
-}: SidebarItemProps) {
+export default function SidebarItem({ href, icon: Icon, label, active, onClick }: Props) {
   return (
-    <Link href={href} onClick={onClick} className="block">
-      <div
-        className={[
-          'flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-[13px] transition-all select-none cursor-pointer',
-          active
-            ? 'bg-white text-black shadow-sm'
-            : 'text-white/65 hover:bg-white/10',
-        ].join(' ')}
-      >
-        <Icon
-          className={
-            active
-              ? 'h-4 w-4 text-black/80'
-              : 'h-4 w-4 text-white/55'
-          }
-        />
-        <span className="truncate">{label}</span>
-      </div>
+    <Link
+      href={href}
+      onClick={onClick}
+      className={`
+        flex items-center gap-3 px-3 py-2 rounded-lg
+        transition-colors duration-200
+        ${active
+          ? 'bg-[#0f0f0f] text-white'
+          : 'text-white/55 hover:text-white hover:bg-[#0c0c0c]'
+        }
+      `}
+    >
+      <Icon
+        className={`
+          h-4 w-4 transition-colors
+          ${active ? 'text-white' : 'text-white/45'}
+        `}
+      />
+
+      <span className="text-sm font-medium">{label}</span>
     </Link>
   )
 }
