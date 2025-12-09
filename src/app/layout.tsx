@@ -25,39 +25,38 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
-      <head>
-        <title>Eqp Dashboard</title>
-        <meta name="description" content="Dashboard" />
-        <meta name="robots" content="index, follow" />
-<script
-  dangerouslySetInnerHTML={{
-    __html: `
-      document.addEventListener('gesturestart', function (e) {
-        e.preventDefault();
-      });
-    `,
-  }}
-/>
+     <head>
+  <title>Eqp Dashboard</title>
+  <meta name="description" content="Dashboard" />
+  <meta name="robots" content="index, follow" />
 
-        {/* 🔒 TRAVAR ZOOM NO MOBILE / PWA */}
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
-        />
+  <script
+    dangerouslySetInnerHTML={{
+      __html: `
+        document.addEventListener('gesturestart', function (e) {
+          e.preventDefault();
+        });
+      `,
+    }}
+  />
 
-        {/* PWA / manifest */}
-        <link rel="manifest" href="/manifest.webmanifest" />
-        <meta name="theme-color" content="#050505" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+  />
 
-        {/* iOS */}
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta
-          name="apple-mobile-web-app-status-bar-style"
-          content="black-translucent"
-        />
-        <meta name="apple-mobile-web-app-title" content="Eqp Dashboard" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-      </head>
+  {/* FAVICON */}
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="apple-touch-icon" href="/icon192.png" />
+  {/* PWA */}
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#050505" />
+
+  {/* iOS */}
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Eqp Dashboard" />
+</head>
 
       <body
         className={cn(

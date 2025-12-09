@@ -175,26 +175,28 @@ export default function MobileLoginPage() {
                   <label className="text-[11px] text-white/55">
                     E-mail de acesso
                   </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="exemplo@gmail.com"
-                    className="h-10 w-full rounded-lg border border-white/10 bg-[#050505] px-3 text-xs text-white/85 placeholder:text-white/30 outline-none focus:border-white/35 focus:ring-0"
-                  />
+<input
+  type="email"
+  value={email}
+  onChange={(e) => setEmail(e.target.value)}
+  placeholder="exemplo@gmail.com"
+  className="h-10 w-full rounded-lg border border-white/10 bg-[#050505] px-3 text-[16px] text-white/85 placeholder:text-white/40 outline-none focus:border-white/35 focus:ring-0"
+/>
+
                 </div>
 
                 {/* SENHA */}
                 <div className="space-y-1.5">
                   <label className="text-[11px] text-white/55">Senha</label>
                   <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Digite sua senha"
-                      className="h-10 w-full rounded-lg border border-white/10 bg-[#050505] px-3 pr-9 text-xs text-white/85 placeholder:text-white/30 outline-none focus:border-white/35 focus:ring-0"
-                    />
+<input
+  type={showPassword ? 'text' : 'password'}
+  value={password}
+  onChange={(e) => setPassword(e.target.value)}
+  placeholder="Digite sua senha"
+  className="h-10 w-full rounded-lg border border-white/10 bg-[#050505] px-3 pr-9 text-[16px] text-white/85 placeholder:text-white/40 outline-none focus:border-white/35 focus:ring-0"
+/>
+
 
                     <button
                       type="button"
