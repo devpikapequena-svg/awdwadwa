@@ -775,12 +775,12 @@ function ExpiredRedirectSpinner() {
         </section>
 
         {/* ====== MINI DASH DE RESUMO (MEIO DA TELA) ====== */}
-        <section className="relative z-20 mt-52 px-6 pb-4">
+        <section className="relative z-20 mt-44 px-6 pb-4">
           <div className="mb-3 flex items-center justify-between text-[11px] text-white/45" />
 
           <div className="grid grid-cols-2 gap-3 text-[11px]">
             {/* Pedidos */}
-            <div className="rounded-2xl bg-white/[0.03] px-3.5 py-3.5 backdrop-blur-sm">
+            <div className="rounded-2xl bg-white/[0.04] px-3.5 py-3.5 backdrop-blur-sm">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[11px] text-white/50">Pedidos Pagos</p>
@@ -795,7 +795,7 @@ function ExpiredRedirectSpinner() {
             </div>
 
             {/* Índice de atividade */}
-            <div className="rounded-2xl bg-white/[0.03] px-3.5 py-3.5 backdrop-blur-sm">
+            <div className="rounded-2xl bg-white/[0.04] px-3.5 py-3.5 backdrop-blur-sm">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[11px] text-white/50">
@@ -855,18 +855,17 @@ function ExpiredRedirectSpinner() {
                   return (
                     <div
                       key={order.id}
-                      className="flex items-center justify-between rounded-2xl bg-white/[0.03] px-3.5 py-2.5"
+                      className="flex items-center justify-between rounded-2xl bg-white/[0.04] px-3.5 py-2.5"
                     >
                       <div className="flex flex-col">
                         <span className="text-[11px] text-white/45">
                           {hourLabel}
                         </span>
+<span className="text-[12px] font-medium text-white/80">
+  Pedido #{order.id.slice(-6)}
+</span>
 
-                        <span className="text-sm font-medium">
-                          {showBalance
-                            ? formatAmountNoSpace(order.profit)
-                            : '••••••'}
-                        </span>
+
                       </div>
 
                       <div className="flex flex-col items-end gap-1">
@@ -893,7 +892,7 @@ function ExpiredRedirectSpinner() {
           {/* ====== BOTTOM NAV FIXO ====== */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#050505]/95 backdrop-blur-md">
         <div className="mx-auto max-w-md">
-          <div className="flex items-center justify-around px-4 py-4 text-[11px]">
+          <div className="flex items-center justify-around px-4 py-6 text-[11px]">
             <Link
               href="/mobile"
               className="flex flex-col items-center gap-1 text-white"
@@ -907,7 +906,7 @@ function ExpiredRedirectSpinner() {
               className="flex flex-col items-center gap-1 text-white/60"
             >
               <BarChart2 className="h-4 w-4" />
-              <span>Comissões</span>
+              <span>Resumo</span>
             </Link>
 
             <Link

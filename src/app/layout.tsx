@@ -3,7 +3,6 @@
 import { Suspense } from 'react'
 import './globals.css'
 import { cn } from '@/lib/utils'
-import { Toaster } from '@/components/ui/toaster'
 import { Inter } from 'next/font/google'
 import { CartProvider } from '@/context/CartContext'
 import { PwaRegister } from '@/components/PwaRegister'
@@ -16,7 +15,6 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
       {/* registra o service worker do PWA */}
       <PwaRegister />
       {children}
-      <Toaster />
     </div>
   )
 }

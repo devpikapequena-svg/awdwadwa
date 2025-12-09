@@ -284,33 +284,6 @@ export default function MobileSettingsPage() {
       console.error('Erro ao atualizar statuses de notificação', err)
     }
   }
-
-  const handleTestPush = async () => {
-    try {
-      setTestingPush(true)
-      const res = await fetch('/api/notifications/test', {
-        method: 'POST',
-        credentials: 'include',
-      })
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        alert(
-          data?.message ||
-            'Não foi possível enviar a notificação de teste. Verifique se o app está instalado e as notificações estão ativas.',
-        )
-        return
-      }
-
-      alert('Notificação de teste enviada. Confira no seu iPhone 📲')
-    } catch (err) {
-      console.error('Erro ao enviar push de teste', err)
-      alert('Erro ao enviar notificação de teste.')
-    } finally {
-      setTestingPush(false)
-    }
-  }
-
   /* ========= GUARDS ========= */
 
   if (isMobile === false) {
@@ -350,10 +323,6 @@ export default function MobileSettingsPage() {
           <div className="mb-5 flex items-center justify-between">
             <div>
               <h1 className="mt-1 text-[22px] font-semibold">Configurações</h1>
-              <p className="mt-1 text-[11px] text-white/45 max-w-xs">
-                Ajuste como você quer ser avisado das vendas direto no seu
-                iPhone.
-              </p>
             </div>
 
             <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/5">
@@ -366,7 +335,7 @@ export default function MobileSettingsPage() {
         <section className="relative z-10 flex-1 px-6 pb-24">
           <div className="space-y-3">
             {/* CARD NOTIFICAÇÕES */}
-            <div className="rounded-2xl bg-white/[0.03] px-3.5 py-3.5 ">
+            <div className="rounded-2xl bg-white/[0.04] px-3.5 py-3.5 ">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5">
@@ -435,23 +404,6 @@ export default function MobileSettingsPage() {
                       )}
                     </div>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={handleTestPush}
-                    disabled={testingPush}
-                    className="inline-flex items-center justify-center rounded-full border border-white bg-transparent px-4 py-1.5 text-[11px] font-semibold text-white transition hover:bg-white hover:text-black disabled:opacity-60"
-                  >
-                    {testingPush
-                      ? 'Enviando...'
-                      : 'Enviar notificação de teste'}
-                  </button>
-
-                  <p className="text-[10px] text-white/40">
-                    Dica: deixe marcado só o que importa pra você (ex: apenas
-                    vendas pagas). O backend usa essas preferências na hora de
-                    disparar o push.
-                  </p>
                 </div>
               )}
             </div>
@@ -459,10 +411,9 @@ export default function MobileSettingsPage() {
         </section>
       </div>
 
-      {/* ====== BOTTOM NAV FIXO ====== */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#050505]/95 backdrop-blur-md">
         <div className="mx-auto max-w-md">
-          <div className="flex items-center justify-around px-4 py-4 text-[11px]">
+          <div className="flex items-center justify-around px-4 py-6 text-[11px]">
             <Link
               href="/mobile"
               className="flex flex-col items-center gap-1 text-white/60"
@@ -476,7 +427,7 @@ export default function MobileSettingsPage() {
               className="flex flex-col items-center gap-1 text-white/60"
             >
               <BarChart2 className="h-4 w-4" />
-              <span>Comissões</span>
+              <span>Resumo</span>
             </Link>
 
             <Link
