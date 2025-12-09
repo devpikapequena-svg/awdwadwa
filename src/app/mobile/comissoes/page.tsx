@@ -401,7 +401,7 @@ export default function MobileComissoesPage() {
       {/* ====== BOTTOM NAV FIXO ====== */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#050505]/95 backdrop-blur-md">
         <div className="mx-auto max-w-md">
-          <div className="flex items-center justify-around px-4 py-6 text-[11px]">
+    <div className="flex items-center justify-around px-4 py-6 text-[11px] translate-y-[-8px]">
             <Link
               href="/mobile"
               className="flex flex-col items-center gap-1 text-white/60"

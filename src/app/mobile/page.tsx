@@ -889,36 +889,36 @@ function ExpiredRedirectSpinner() {
         )}
       </div>
 
-          {/* ====== BOTTOM NAV FIXO ====== */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#050505]/95 backdrop-blur-md">
-        <div className="mx-auto max-w-md">
-          <div className="flex items-center justify-around px-4 py-6 text-[11px]">
-            <Link
-              href="/mobile"
-              className="flex flex-col items-center gap-1 text-white"
-            >
-              <LayoutDashboard className="h-4 w-4" />
-              <span>Dashboard</span>
-            </Link>
+<nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#050505]/95 backdrop-blur-md">
+  <div className="mx-auto max-w-md">
+    <div className="flex items-center justify-around px-4 py-6 text-[11px] translate-y-[-8px]">
+      <Link
+        href="/mobile"
+        className="flex flex-col items-center gap-1 text-white"
+      >
+        <LayoutDashboard className="h-4 w-4" />
+        <span>Dashboard</span>
+      </Link>
 
-            <Link
-              href="/mobile/comissoes"
-              className="flex flex-col items-center gap-1 text-white/60"
-            >
-              <BarChart2 className="h-4 w-4" />
-              <span>Resumo</span>
-            </Link>
+      <Link
+        href="/mobile/comissoes"
+        className="flex flex-col items-center gap-1 text-white/60"
+      >
+        <BarChart2 className="h-4 w-4" />
+        <span>Resumo</span>
+      </Link>
 
-            <Link
-              href="/mobile/settings"
-              className="flex flex-col items-center gap-1 text-white/60"
-            >
-              <Settings className="h-4 w-4" />
-              <span>Configurações</span>
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Link
+        href="/mobile/settings"
+        className="flex flex-col items-center gap-1 text-white/60"
+      >
+        <Settings className="h-4 w-4" />
+        <span>Configurações</span>
+      </Link>
+    </div>
+  </div>
+</nav>
+
 
 
       {/* animações (popover settings) */}
