@@ -110,10 +110,13 @@ function statusClasses(s: 'paid' | 'pending' | 'med') {
   return 'bg-red-500/10 text-red-300 border border-red-500/30'
 }
 
-// ===== helpers de data (mesmo esquema do dashboard) =====
 function toYMD(d: Date) {
-  return d.toISOString().slice(0, 10)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}` // YYYY-MM-DD em timezone local
 }
+
 
 type CalendarCell = {
   date: Date

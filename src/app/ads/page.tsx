@@ -80,8 +80,12 @@ function formatCurrency(value: number | null | undefined) {
 }
 
 function toYMD(d: Date) {
-  return d.toISOString().slice(0, 10)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}` // YYYY-MM-DD em timezone local
 }
+
 
 function formatDateTime(dateStr: string) {
   const d = new Date(dateStr)

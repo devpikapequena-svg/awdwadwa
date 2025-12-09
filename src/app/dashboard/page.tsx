@@ -94,9 +94,11 @@ function CustomTooltip({ active, payload, label }: any) {
   )
 }
 
-// helpers de data
 function toYMD(d: Date) {
-  return d.toISOString().slice(0, 10)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}` // YYYY-MM-DD em timezone local
 }
 
 function addDays(base: Date, days: number) {
