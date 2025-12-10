@@ -865,7 +865,7 @@ export default function VendasPage() {
                       Cliente
                     </th>
                     <th className="px-4 py-3 text-left font-medium text_WHITE/50 w-[22%]">
-                      Site / Parceiro
+                      Parceiro
                     </th>
                     <th className="px-4 py-3 text-center font-medium text-white/50 w-[10%]">
                       Bruto
@@ -925,12 +925,9 @@ export default function VendasPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3 align-middle">
+                        <td className="px-7 py-3 align-middle">
                           <div className="flex flex-col">
                             <span className="text-white/80">
-                              {o.siteName}
-                            </span>
-                            <span className="text-[10px] text-white/35">
                               {o.partnerName}
                             </span>
                           </div>

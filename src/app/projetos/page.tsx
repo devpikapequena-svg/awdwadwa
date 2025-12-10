@@ -493,7 +493,7 @@ export default function ProjetosPage() {
                       <thead className="bg-[#050505] text-white/40">
                         <tr>
                           <th className="sticky top-0 z-10 border-b border-white/5 px-4 py-2 text-left font-medium">
-                            Site / parceiro
+                            Parceiro
                           </th>
                           <th className="sticky top-0 z-10 border-b border-white/5 px-4 py-2 text-left font-medium">
                             Domínio
@@ -539,12 +539,6 @@ export default function ProjetosPage() {
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-[11px] font-medium text-white">
                                   {p.siteName || p.siteSlug}
-                                </span>
-                                <span className="text-[10px] text-white/45">
-                                  {p.partnerName || 'Parceiro não configurado'}
-                                </span>
-                                <span className="text-[10px] text-white/30">
-                                  slug: {p.siteSlug}
                                 </span>
                               </div>
                             </td>

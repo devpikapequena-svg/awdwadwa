@@ -24,7 +24,7 @@ export default function Sidebar({ user }: { user: any }) {
     (String(user.name || '').toLowerCase().includes('bruxin') ||
       String(user.email || '').toLowerCase() === 'bruxin@exec.gg')
 
-  const roleLabel = isBruxin ? 'Owner' : 'Member'
+  const roleLabel = isBruxin ? 'Admin' : 'Member'
   const avatarUrl = user?.image || '/avatar.jpg'
 
   return (
@@ -76,7 +76,7 @@ export default function Sidebar({ user }: { user: any }) {
             />
           </div>
           <div className="flex flex-col">
-            <span className="text-[11px] text-white/40">EQP Dashboard</span>
+            <span className="text-[11px] text-white/40">Exec Dashboard</span>
             <span className="text-sm font-semibold text-white/90">
               Área do gestor
             </span>

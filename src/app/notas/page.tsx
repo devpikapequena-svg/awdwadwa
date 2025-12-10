@@ -696,7 +696,7 @@ export default function ComissoesPage() {
                     <thead className="bg-[#070707]/90 border-b border-[#151515] sticky top-0 z-10">
                       <tr>
                         <th className="px-4 py-3 text-left font-medium text-white/50 w-[26%]">
-                          Parceiro / Site
+                          Parceiro
                         </th>
                         <th className="px-4 py-3 text-center font-medium text-white/50 w-[12%]">
                           Líquido
@@ -761,12 +761,6 @@ export default function ComissoesPage() {
                                 <div className="flex flex-col">
                                   <span className="text-white/85 text-[12px] font-medium">
                                     {p.partnerName || 'Sem nome'}
-                                  </span>
-                                  <span className="text-[10px] text-white/40">
-                                    {p.siteName}{' '}
-                                    <span className="text-white/30">
-                                      · {p.siteSlug}
-                                    </span>
                                   </span>
                                 </div>
                               </td>

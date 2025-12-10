@@ -38,24 +38,6 @@ export default function HeaderAfiliados() {
           </div>
         </Link>
 
-     {/* NAV DESKTOP */}
-<nav className="hidden md:flex items-center gap-7 text-xs font-medium text-white/50">
-  <Link href="#features" className="transition hover:text-white">
-    Recursos
-  </Link>
-  <Link href="#conciliation" className="transition hover:text-white">
-    Conciliação
-  </Link>
-  <Link href="#mobile-app" className="transition hover:text-white">
-    App Mobile
-  </Link>
-  <Link href="#integrations" className="transition hover:text-white">
-    Integrações
-  </Link>
-  <Link href="#automation" className="transition hover:text-white">
-    Automação
-  </Link>
-</nav>
 
 
         {/* BOTÃO LOGIN DESKTOP */}
@@ -88,26 +70,7 @@ export default function HeaderAfiliados() {
 {open && (
   <div className="absolute left-0 top-full w-full border-b border-white/10 bg-black/95 backdrop-blur-xl md:hidden">
     <nav className="flex flex-col gap-1 px-5 py-4 text-sm text-white/70">
-      
-      <Link href="#features" onClick={() => setOpen(false)} className="py-2 hover:text-white">
-        Recursos
-      </Link>
 
-      <Link href="#conciliation" onClick={() => setOpen(false)} className="py-2 hover:text-white">
-        Conciliação
-      </Link>
-
-      <Link href="#mobile-app" onClick={() => setOpen(false)} className="py-2 hover:text-white">
-        App Mobile
-      </Link>
-
-      <Link href="#integrations" onClick={() => setOpen(false)} className="py-2 hover:text-white">
-        Integrações
-      </Link>
-
-      <Link href="#automation" onClick={() => setOpen(false)} className="py-2 hover:text-white">
-        Automação
-      </Link>
 
       <Link
         href="/login"
